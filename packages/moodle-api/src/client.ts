@@ -41,7 +41,20 @@ const isMoodleErrorBody = (body: unknown): body is MoodleErrorBody =>
 // https://regex101.com/?regex=%5C%2F%2B%24&testString=https%3A%2F%2Fwebeep.polimi.it%2F%2F%0Ahttps%3A%2F%2Fwebeep.polimi.it&flavor=javascript
 const trimTrailingSlash = (url: string): string => url.replace(/\/+$/, '');
 
-const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams): Promise<unknown> => {
+/**
+ * Legge il corpo come JSON. WeBeep a volte risponde 200 con una pagina HTML
+ * (manutenzione, sessione SSO scaduta): diventa un errore di forma, non un
+ * SyntaxError generico.
+ */
+const readJson = async (response: Response, wsfunction: string): Promise<unknown> => {
+  try {
+    return await response.json();
+  } catch {
+    throw new MoodleResponseShapeError(wsfunction, 'la risposta non è JSON');
+  }
+};
+
+const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams, wsfunction: string): Promise<unknown> => {
   let response: Response;
   try {
     response = await fetchFn(url, {
@@ -53,7 +66,7 @@ const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams):
     throw new MoodleNetworkError(`Impossibile contattare ${url}`, undefined, { cause });
   }
   if (!response.ok) throw new MoodleNetworkError(`HTTP ${response.status} da ${url}`, response.status);
-  return response.json();
+  return readJson(response, wsfunction);
 };
 
 const parseWith = <TSchema extends z.ZodType>(wsfunction: string, schema: TSchema, body: unknown): z.output<TSchema> => {
@@ -77,7 +90,7 @@ export const createMoodleClient = (options: MoodleClientOptions): MoodleClient =
       wsfunction,
       moodlewsrestformat: REST_FORMAT,
     });
-    const body = await postForm(fetchFn, `${siteUrl}${REST_PATH}?wsfunction=${wsfunction}`, form);
+    const body = await postForm(fetchFn, `${siteUrl}${REST_PATH}?wsfunction=${wsfunction}`, form, wsfunction);
     if (isMoodleErrorBody(body)) throw new MoodleApiError(body.errorcode, body.message, wsfunction);
     return parseWith(wsfunction, schema, body);
   };
@@ -108,7 +121,7 @@ export const callPublicAjax = async <TSchema extends z.ZodType>(
     throw new MoodleNetworkError(`Impossibile contattare ${url}`, undefined, { cause });
   }
   if (!response.ok) throw new MoodleNetworkError(`HTTP ${response.status} da ${url}`, response.status);
-  const body: unknown = await response.json();
+  const body = await readJson(response, methodname);
   const first: unknown = Array.isArray(body) ? body[0] : undefined;
   if (typeof first !== 'object' || first === null || !('error' in first) || !('data' in first)) {
     throw new MoodleResponseShapeError(methodname, 'risposta AJAX senza { error, data }');

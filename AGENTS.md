@@ -88,8 +88,11 @@ scrittura di file `.ts`/`.tsx`. In pratica:
 - niente numeri magici: costanti con nome (i dati di prova vanno in `.json`);
 - ogni regex ha sopra un commento con cosa accetta, un esempio che passa, uno
   che non passa e un link a regex101 precompilato;
-- `type` invece di `interface`, union di stringhe invece di `enum`, `switch`
-  esaustivi con `assertNever`;
+- `type` invece di `interface`, union di stringhe invece di `enum`;
+- niente `switch` (l'hook lo blocca): per scegliere in base a una union usa
+  una mappa `Record<Union, …>` (esaustiva per costruzione) o una catena di `if`;
+- `lucide-react` 1.x ha rinominato alcune icone (`AlertCircle` → `CircleAlert`):
+  se un'icona non esiste, cerca il nome nuovo in `node_modules/lucide-react`;
 - componenti come `const` arrow con export nominali; un componente per file;
   logica in hook, viste solo di rendering;
 - testi dell'interfaccia in **italiano**, frasi in minuscolo ("Apri nel

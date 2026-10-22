@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "id": 7001,
+      "name": "Consegna esercizio 1",
+      "description": "",
+      "eventtype": "due",
+      "modulename": "assign",
+      "timestart": 1730000000,
+      "timesort": 1730000000,
+      "timeduration": 0,
+      "overdue": 0,
+      "url": "https://webeep.polimi.it/mod/assign/view.php?id=9100",
+      "course": { "id": 101, "fullname": "Analisi Matematica I", "shortname": "AM1" },
+      "action": { "name": "Consegna", "url": "https://webeep.polimi.it/mod/assign/view.php?id=9100", "actionable": 1 }
+    }
+  ],
+  "firstid": 7001,
+  "lastid": 7001
+}

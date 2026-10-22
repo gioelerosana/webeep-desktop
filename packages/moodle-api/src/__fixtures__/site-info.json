@@ -1,0 +1,12 @@
+{
+  "sitename": "WeBeep",
+  "siteurl": "https://webeep.polimi.it",
+  "username": "mario.rossi",
+  "firstname": "Mario",
+  "lastname": "Rossi",
+  "fullname": "Mario Rossi",
+  "userid": 1234,
+  "userpictureurl": "https://webeep.polimi.it/pluginfile.php/1/user/icon/f1",
+  "lang": "it",
+  "release": "4.5.3 (Build: 20250101)"
+}
