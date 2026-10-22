@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { callPublicAjax, createMoodleClient, type FetchLike } from './client.js';
 import { MoodleApiError, MoodleNetworkError, MoodleResponseShapeError } from './errors.js';
 import { publicConfigSchema, siteInfoSchema } from './schemas.js';
@@ -229,5 +230,49 @@ describe('callPublicAjax', () => {
 
     expect(error).toBeInstanceOf(MoodleNetworkError);
     expect(error).toMatchObject({ status: HTTP_UNAVAILABLE });
+  });
+});
+
+describe('createMoodleClient, multilingua', () => {
+  const ENGLISH_LANG = 'en';
+  const MULTILANG_NAME = '{mlang it}Bacheca{mlang}{mlang en}Board{mlang}';
+  const NAME_SCHEMA = z.object({ name: z.string() });
+
+  it('invia moodlewssettingfilter=true e moodlewssettinglang=it di default', async () => {
+    const { fetchFn, requests } = fakeFetch(() => jsonResponse(siteInfoFixture));
+    const client = createMoodleClient({ siteUrl: SITE_URL, token: TOKEN, fetch: fetchFn });
+
+    await client.call(WSFUNCTION, {}, siteInfoSchema);
+
+    const form = formOf(onlyRequest(requests));
+    expect(form.get('moodlewssettingfilter')).toBe('true');
+    expect(form.get('moodlewssettinglang')).toBe('it');
+  });
+
+  it('moodlewssettinglang segue l\'opzione lang del client', async () => {
+    const { fetchFn, requests } = fakeFetch(() => jsonResponse(siteInfoFixture));
+    const client = createMoodleClient({ siteUrl: SITE_URL, token: TOKEN, fetch: fetchFn, lang: ENGLISH_LANG });
+
+    await client.call(WSFUNCTION, {}, siteInfoSchema);
+
+    expect(formOf(onlyRequest(requests)).get('moodlewssettinglang')).toBe(ENGLISH_LANG);
+  });
+
+  it('non chiede moodlewssettingfileurl, perché cambierebbe gli URL dei file', async () => {
+    const { fetchFn, requests } = fakeFetch(() => jsonResponse(siteInfoFixture));
+    const client = createMoodleClient({ siteUrl: SITE_URL, token: TOKEN, fetch: fetchFn });
+
+    await client.call(WSFUNCTION, {}, siteInfoSchema);
+
+    expect(formOf(onlyRequest(requests)).has('moodlewssettingfileurl')).toBe(false);
+  });
+
+  it('risolve il multilingua della risposta prima della validazione zod', async () => {
+    const { fetchFn } = fakeFetch(() => jsonResponse({ name: MULTILANG_NAME }));
+    const client = createMoodleClient({ siteUrl: SITE_URL, token: TOKEN, fetch: fetchFn });
+
+    const result = await client.call(WSFUNCTION, {}, NAME_SCHEMA);
+
+    expect(result).toEqual({ name: 'Bacheca' });
   });
 });

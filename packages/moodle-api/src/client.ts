@@ -9,10 +9,18 @@
 import type { z } from 'zod';
 import { MoodleApiError, MoodleNetworkError, MoodleResponseShapeError } from './errors.js';
 import { encodeMoodleParams, type MoodleParams } from './params.js';
+import { resolveMultilangDeep } from './multilang.js';
 
 const REST_PATH = '/webservice/rest/server.php';
 const AJAX_NOLOGIN_PATH = '/lib/ajax/service-nologin.php';
 const REST_FORMAT = 'json';
+// Lingua dei testi multilingua di WeBeep, quando il client non ne indica un'altra.
+const DEFAULT_LANG = 'it';
+// Chiede al server di applicare i filtri (il multilingua) alle risposte. Non si
+// chiede `moodlewssettingfileurl`: cambierebbe gli URL dei file.
+const WS_SETTING_FILTER = 'true';
+const WS_SETTING_FILTER_PARAM = 'moodlewssettingfilter';
+const WS_SETTING_LANG_PARAM = 'moodlewssettinglang';
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -20,6 +28,8 @@ export type MoodleClientOptions = {
   readonly siteUrl: string;
   readonly token: string;
   readonly fetch?: FetchLike;
+  /** Lingua dei testi multilingua (codice a due lettere, es. "it"). Default "it". */
+  readonly lang?: string;
 };
 
 export type MoodleClient = {
@@ -78,6 +88,7 @@ const parseWith = <TSchema extends z.ZodType>(wsfunction: string, schema: TSchem
 export const createMoodleClient = (options: MoodleClientOptions): MoodleClient => {
   const siteUrl = trimTrailingSlash(options.siteUrl);
   const fetchFn: FetchLike = options.fetch ?? fetch;
+  const lang = options.lang ?? DEFAULT_LANG;
 
   const call = async <TSchema extends z.ZodType>(
     wsfunction: string,
@@ -89,8 +100,12 @@ export const createMoodleClient = (options: MoodleClientOptions): MoodleClient =
       wstoken: options.token,
       wsfunction,
       moodlewsrestformat: REST_FORMAT,
+      [WS_SETTING_FILTER_PARAM]: WS_SETTING_FILTER,
+      [WS_SETTING_LANG_PARAM]: lang,
     });
-    const body = await postForm(fetchFn, `${siteUrl}${REST_PATH}?wsfunction=${wsfunction}`, form, wsfunction);
+    const rawBody = await postForm(fetchFn, `${siteUrl}${REST_PATH}?wsfunction=${wsfunction}`, form, wsfunction);
+    // Il ripiego sul multilingua va prima di tutto il resto: anche i messaggi d'errore ne beneficiano.
+    const body = resolveMultilangDeep(rawBody, lang);
     if (isMoodleErrorBody(body)) throw new MoodleApiError(body.errorcode, body.message, wsfunction);
     return parseWith(wsfunction, schema, body);
   };
@@ -127,5 +142,5 @@ export const callPublicAjax = async <TSchema extends z.ZodType>(
     throw new MoodleResponseShapeError(methodname, 'risposta AJAX senza { error, data }');
   }
   if (first.error) throw new MoodleApiError('ajaxerror', JSON.stringify(first.data), methodname);
-  return parseWith(methodname, schema, first.data);
+  return parseWith(methodname, schema, resolveMultilangDeep(first.data, DEFAULT_LANG));
 };

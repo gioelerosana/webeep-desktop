@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "name": "filter_multilang2, titolo Bacheca in italiano",
+      "input": "{mlang it}Annunci{mlang}{mlang en}Announcements{mlang}",
+      "lang": "it",
+      "expected": "Annunci"
+    },
+    {
+      "name": "filter_multilang2, stesso titolo in inglese",
+      "input": "{mlang it}Annunci{mlang}{mlang en}Announcements{mlang}",
+      "lang": "en",
+      "expected": "Announcements"
+    },
+    {
+      "name": "filter_multilang2, testo prima e dopo il gruppo",
+      "input": "Bacheca {mlang it}Avvisi{mlang}{mlang en}Notices{mlang} del corso",
+      "lang": "it",
+      "expected": "Bacheca Avvisi del corso"
+    },
+    {
+      "name": "filter_multilang2, solo il blocco en e lingua richiesta it: si prende il primo",
+      "input": "{mlang en}Notices{mlang}",
+      "lang": "it",
+      "expected": "Notices"
+    },
+    {
+      "name": "filter_multilang2, blocco other come ripiego",
+      "input": "{mlang other}Fallback{mlang}{mlang it}Avvisi{mlang}",
+      "lang": "en",
+      "expected": "Fallback"
+    },
+    {
+      "name": "filter_multilang2, la lingua richiesta vince sul primo blocco",
+      "input": "{mlang en}Notices{mlang}{mlang it}Avvisi{mlang}",
+      "lang": "it",
+      "expected": "Avvisi"
+    },
+    {
+      "name": "filter_multilang2, codice lingua con regione (it_IT) confrontato sul prefisso",
+      "input": "{mlang it}Avvisi{mlang}{mlang en}Notices{mlang}",
+      "lang": "it_IT",
+      "expected": "Avvisi"
+    },
+    {
+      "name": "filter_multilang2, tag in maiuscolo",
+      "input": "{MLANG IT}Avvisi{MLANG}{MLANG EN}Notices{MLANG}",
+      "lang": "en",
+      "expected": "Notices"
+    },
+    {
+      "name": "filter_multilang2, due gruppi nella stessa stringa",
+      "input": "{mlang it}A{mlang}{mlang en}B{mlang} e {mlang it}C{mlang}{mlang en}D{mlang}",
+      "lang": "en",
+      "expected": "B e D"
+    },
+    {
+      "name": "core multilang, span nell'ordine lang poi class",
+      "input": "<span lang=\"it\" class=\"multilang\">Bacheca</span><span lang=\"en\" class=\"multilang\">Board</span>",
+      "lang": "it",
+      "expected": "Bacheca"
+    },
+    {
+      "name": "core multilang, attributi in ordine inverso e apici singoli",
+      "input": "<span class='multilang' lang='en'>Board</span><span class='multilang' lang='it'>Bacheca</span>",
+      "lang": "it",
+      "expected": "Bacheca"
+    },
+    {
+      "name": "core multilang, gruppo dentro un paragrafo con altri span",
+      "input": "<p><span class=\"x\">a</span><span lang=\"en\" class=\"multilang\">Board</span><span lang=\"it\" class=\"multilang\">Bacheca</span></p>",
+      "lang": "it",
+      "expected": "<p><span class=\"x\">a</span>Bacheca</p>"
+    },
+    {
+      "name": "testo senza marcatori invariato",
+      "input": "Programma del corso, lezioni 1-12",
+      "lang": "it",
+      "expected": "Programma del corso, lezioni 1-12"
+    },
+    {
+      "name": "testo con la parola lang ma senza marcatori invariato",
+      "input": "<span lang=\"it\">Testo semplice senza classe multilang</span>",
+      "lang": "it",
+      "expected": "<span lang=\"it\">Testo semplice senza classe multilang</span>"
+    }
+  ]
+}
