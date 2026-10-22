@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "dev:web": "electron-vite dev --rendererOnly",
+    "diagnose": "WEBEEP_DIAGNOSE=1 electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json"

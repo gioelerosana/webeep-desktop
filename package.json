@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "pnpm --filter @webeep/desktop dev",
     "dev:web": "pnpm --filter @webeep/desktop dev:web",
+    "diagnose": "pnpm --filter @webeep/desktop diagnose",
     "build": "pnpm -r typecheck && pnpm --filter @webeep/desktop build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @webeep/moodle-api test"

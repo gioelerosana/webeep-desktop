@@ -5,6 +5,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import { join } from 'node:path';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
+import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
 import { registerIpcHandlers } from './handlers.js';
 
 const WINDOW_WIDTH = 1280;
@@ -53,6 +54,14 @@ const start = async (): Promise<void> => {
   handleAssetProtocol();
   registerIpcHandlers();
   await restoreSession();
+  if (isDiagnoseMode()) {
+    try {
+      await runDiagnosis();
+    } finally {
+      app.quit();
+    }
+    return;
+  }
   createMainWindow();
 
   app.on('activate', () => {
