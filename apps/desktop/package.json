@@ -8,7 +8,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "dev:web": "electron-vite dev --rendererOnly",
+    "dev:web": "vite --config vite.web.config.ts",
     "diagnose": "WEBEEP_DIAGNOSE=1 electron-vite dev",
     "web": "electron-vite build && WEBEEP_WEB=1 electron .",
     "build": "electron-vite build",
