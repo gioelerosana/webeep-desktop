@@ -42,7 +42,7 @@ priorità. Leggilo a inizio sessione, prima di pianificare.
   nello stesso commit, con una breve nota tra parentesi; per un lavoro parziale
   lascia la voce aperta con `(parziale: …)`. Non riscrivere, riordinare o
   cancellare le voci dell'utente; i seguiti emersi vanno nel riepilogo.
-  `TODO.md` lo tocca **solo l'orchestratore**.
+  `TODO.md` lo tocca **un solo sotto-agente alla volta**, e solo se il prompt lo autorizza.
 
 ## Regole non negoziabili
 
@@ -74,7 +74,7 @@ priorità. Leggilo a inizio sessione, prima di pianificare.
    confermata dell'utente.
 9. **Niente nuove dipendenze senza necessità.** Prima di aggiungerne una,
    chiediti se la piattaforma o una dipendenza esistente bastano. Le aggiunge
-   solo l'orchestratore.
+   solo un sotto-agente, con autorizzazione esplicita dell'utente.
 
 ## Stile del codice
 
@@ -100,65 +100,117 @@ scrittura di file `.ts`/`.tsx`. In pratica:
 
 ## Modalità di lavoro: orchestratore e sotto-agenti
 
-**L'agente principale è un orchestratore, non un esecutore.** Pianifica,
-scrive i contratti, delega e integra; il grosso del codice lo scrivono
-**sotto-agenti Claude Haiku**.
+La sessione avviata dall'utente è **sempre e solo l'orchestratore**. Non esegue
+lavoro operativo: lo fanno i sotto-agenti. Il motivo è il costo: il modello
+principale è il più caro, quindi deve spendere token solo per coordinare.
+
+### Ruolo dell'orchestratore
+
+L'orchestratore:
+
+- capisce la richiesta e pianifica;
+- scompone il lavoro in compiti a file disgiunti;
+- scrive prompt autosufficienti per i sotto-agenti;
+- lancia i sotto-agenti, in parallelo quando sono indipendenti;
+- legge i loro riepiloghi, decide i passi successivi e riferisce all'utente.
+
+Non scrive né modifica codice, test, documentazione o configurazione, nemmeno
+per modifiche piccole o "veloci". Non rilegge diff interi, non esegue
+typecheck, test o build e non fa diagnosi di bug.
+
+### Lavoro dei sotto-agenti
+
+Tutto il lavoro operativo passa ai sotto-agenti, compreso quello che prima
+faceva l'orchestratore:
+
+- contratti condivisi: tipi, canali IPC, hook dati, token del design system;
+- file caldi (elenco sotto);
+- diagnosi dei bug;
+- verifica finale;
+- commit.
+
+Il contratto condiviso si fissa per primo: un sotto-agente lo scrive, poi gli
+altri lo usano senza modificarlo. Solo dopo parte il fan-out.
+
+File caldi: `package.json`, `pnpm-lock.yaml`, `src/shared/ipc.ts`,
+`src/renderer/src/lib/*`, `src/renderer/src/App.tsx`, `packages/*/src/index.ts`,
+`packages/ui-kit/src/theme.css`, `docs/`, `TODO.md`, `AGENTS.md`. Un solo
+sotto-agente alla volta li modifica, in serie, e solo se il prompt lo autorizza
+esplicitamente.
 
 ### Modello dei sotto-agenti
 
-**Regola rigida: l'unico modello ammesso per i sotto-agenti è Claude Haiku**
-(`model: "haiku"`), con reasoning `medium` o `high`. Né Sonnet né Opus né altri
-provider, salvo indicazione esplicita dell'utente nella sessione.
+Regola: modello Claude Haiku (`model: "haiku"`), reasoning `high` come
+predefinito. Imposta sempre modello ed effort in modo esplicito quando lanci un
+sotto-agente.
 
 | Modello | Reasoning | Quando |
 |---|---|---|
-| Haiku | `medium` | lavoro meccanico e ben specificato: componenti su un modello esistente, restyle, test su pattern esistenti, ricerche nel codice |
-| Haiku | `high` | lavoro delimitato ma non banale: una vista intera, un modulo nuovo, un bug circoscritto |
-| Orchestratore | — | piano, contratti condivisi, revisione e integrazione |
+| Haiku | `high` (predefinito) | viste, moduli, contratti, bug, diagnosi, verifica UI |
+| Haiku | `medium` | solo lavoro puramente meccanico e ben specificato: rinomine, import, barrel, scheletri di test, commit |
+| Orchestratore | — | solo coordinamento: piano, scomposizione, prompt, lettura dei riepiloghi, decisioni |
 
-Se un compito è troppo difficile per Haiku `high`, non si passa a un modello
-più grande: lo si scompone o lo fa l'orchestratore. Imposta sempre modello ed
-effort in modo esplicito quando lanci un sotto-agente.
+Nessun altro modello senza indicazione esplicita dell'utente. Se un compito è
+troppo difficile per Haiku `high`, non si sale di modello e non lo fa
+l'orchestratore: lo si scompone in compiti più piccoli.
 
-### Responsabilità dell'orchestratore
+### Parallelismo e file disgiunti
 
-1. **Contratto prima del fan-out.** Tipi, canali IPC, hook dati, token e
-   componenti del kit li scrive l'orchestratore e li committa prima di lanciare
-   i sotto-agenti.
-2. **File disgiunti.** Ogni sotto-agente riceve l'elenco esplicito dei file e
-   delle cartelle che può toccare; due agenti in parallelo non toccano mai lo
-   stesso file. File "caldi" solo dell'orchestratore: `package.json`,
-   `pnpm-lock.yaml`, `src/shared/ipc.ts`, `src/renderer/src/lib/*`,
-   `src/renderer/src/App.tsx`, `packages/*/src/index.ts`,
-   `packages/ui-kit/src/theme.css`, `docs/`, `TODO.md`, `AGENTS.md`.
-3. **Prompt autosufficienti.** Il sotto-agente parte senza contesto: obiettivo,
-   file ammessi, contratto (percorsi da leggere), regole non negoziabili
-   rilevanti, criteri di accettazione, comando di verifica.
-4. **Parallelismo reale.** I compiti indipendenti partono nello stesso turno.
-5. **Verifica a freddo.** Al rientro l'orchestratore rilegge i diff, esegue
-   `pnpm typecheck`, `pnpm test`, `pnpm build` e controlla la UI (anteprima nel
-   browser con il bridge finto, poi l'app Electron). Il lavoro non è fatto
-   finché non è verificato.
+- Ogni sotto-agente riceve l'elenco esplicito dei file e delle cartelle che può
+  toccare.
+- Due sotto-agenti in parallelo non toccano mai lo stesso file.
+- I compiti indipendenti partono nello stesso turno.
+
+### Verifica
+
+- Finiti i sotto-agenti di scrittura, l'orchestratore lancia un sotto-agente
+  verificatore (Haiku, `high`). Esegue `pnpm typecheck`, `pnpm test`,
+  `pnpm build` e, quando serve, controlla la UI con `pnpm dev:web` (tema chiaro
+  e scuro, stati di caricamento, vuoto ed errore).
+- Il verificatore restituisce un riepilogo breve: esiti e problemi.
+- L'orchestratore legge solo il riepilogo. Se qualcosa non torna, lancia un
+  sotto-agente di correzione con i problemi elencati.
+- Il lavoro non è fatto finché il verificatore non riporta esito verde.
+
+### Diagnosi con dati reali
+
+- Per i bug che si vedono solo con WeBeep reale, il sotto-agente usa
+  `pnpm diagnose`: modalità diagnostica del main process, usa la sessione salvata
+  dell'utente e stampa esiti senza mai mostrare il token.
+- Il token non va mai stampato, riportato in un riepilogo o salvato in chiaro.
+- Se `pnpm diagnose` non esiste ancora in `package.json`, il sotto-agente lo
+  segnala e non lo inventa.
+
+### Commit
+
+- Il commit lo fa un sotto-agente, su indicazione dell'orchestratore, a lavoro
+  verificato.
+- Messaggio Conventional Commits in italiano, con riga finale:
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
+- Mai push o PR senza richiesta esplicita dell'utente.
 
 ### Cosa NON fa un sotto-agente
 
-- aggiungere dipendenze o toccare `package.json`/lockfile;
-- modificare i file "caldi" elencati sopra (se il contratto non basta, lo
-  segnala nel riepilogo e si ferma su quel punto);
-- commit, push, PR;
+- aggiungere dipendenze, o toccare `package.json` e il lockfile, senza
+  autorizzazione esplicita dell'utente nel prompt;
+- modificare i file caldi se il prompt non lo autorizza; se il contratto non
+  basta, lo segnala nel riepilogo e si ferma su quel punto;
+- fare commit se il prompt non lo autorizza;
+- push e PR, in nessun caso senza richiesta esplicita dell'utente;
 - chiamare il vero WeBeep o chiedere credenziali: per l'interfaccia si usa il
-  bridge finto.
+  bridge finto. Fa eccezione `pnpm diagnose`, quando il prompt lo prevede.
 
 ### Modello di prompt per un sotto-agente
 
 ```
 Obiettivo: <una frase>.
-Repository: /home/joel/progetti/webeep-desktop. Leggi prima AGENTS.md e docs/DESIGN-SYSTEM.md.
+Repository: /home/joel/progetti/webeep-desktop. Leggi prima AGENTS.md (e docs/DESIGN-SYSTEM.md se tocchi la UI).
 File che puoi creare/modificare: <elenco>. Nient'altro.
+Autorizzazioni: commit <no | sì>; file caldi <nessuno | elenco>; nuove dipendenze <no | sì>. Mai push o PR.
 Contratto da usare (non modificarlo): <percorsi>.
 Requisiti: <elenco puntato, comportamento e stati: caricamento, vuoto, errore>.
 Verifica prima di chiudere: `pnpm typecheck` verde; nessun `any`; testi in italiano.
-Riepilogo finale: file toccati, scelte fatte, cosa non hai potuto fare e perché.
+Riepilogo finale: massimo 5 righe (esito, file toccati, problemi, cosa non hai potuto fare e perché).
 ```
 
 ## Ambiente e comandi
@@ -169,6 +221,7 @@ Riepilogo finale: file toccati, scelte fatte, cosa non hai potuto fare e perché
 pnpm install
 pnpm dev          # app Electron con HMR (login reale su WeBeep)
 pnpm dev:web      # solo interfaccia nel browser, http://localhost:5173, dati finti
+pnpm diagnose    # diagnosi con WeBeep reale: sessione salvata, mai il token in output
 pnpm typecheck    # tsc su tutti i pacchetti
 pnpm test         # test di packages/moodle-api (Vitest)
 pnpm build        # typecheck + build di produzione in apps/desktop/out
@@ -179,6 +232,8 @@ pnpm build        # typecheck + build di produzione in apps/desktop/out
 Aggiungi `?mock=signed-out` all'URL per vedere la schermata di login.
 
 ### Definizione di "fatto"
+
+La verifica la esegue il sotto-agente verificatore; il punto 4 richiede l'utente.
 
 1. `pnpm typecheck` e `pnpm build` senza errori;
 2. `pnpm test` verde (e test nuovi per la logica nuova in `moodle-api`);
@@ -195,5 +250,5 @@ Aggiungi `?mock=signed-out` all'URL per vedere la schermata di login.
   `fix(auth): …`, `docs: …`. Scope tipici: `moodle-api`, `ui-kit`, `main`,
   `ipc`, `renderer`, o il nome della vista.
 - Si lavora su branch (`feat/<slug>`, `fix/<slug>`); `main` riceve solo merge.
-- Commit e push li fa l'orchestratore a fine task; la PR è una decisione
-  dell'utente.
+- Commit li fa un sotto-agente su indicazione dell'orchestratore, a fine task
+  verificato. Push e PR solo su richiesta esplicita dell'utente.
