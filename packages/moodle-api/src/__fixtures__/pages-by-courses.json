@@ -1,0 +1,87 @@
+{
+  "pages": [
+    {
+      "id": 7001,
+      "coursemodule": 9010,
+      "course": 101,
+      "name": "Benvenuto e programma",
+      "intro": "<p>Pagina di presentazione del corso.</p>",
+      "introformat": 1,
+      "introfiles": [
+        {
+          "filename": "locandina.png",
+          "filepath": "/",
+          "filesize": 4096,
+          "fileurl": "https://webeep.polimi.it/webservice/pluginfile.php/1/mod_page/intro/1/locandina.png",
+          "timemodified": 1725400000,
+          "mimetype": "image/png",
+          "isexternalfile": false,
+          "repositorytype": ""
+        }
+      ],
+      "content": "<p>Benvenuti al corso. Il programma completo è nella <a href=\"https://webeep.polimi.it/webservice/pluginfile.php/1/mod_page/content/3/programma.pdf\">dispensa del programma</a>.</p><p>Per le scadenze vedi anche <a href=\"https://webeep.polimi.it/mod/page/view.php?id=9011\">la pagina successiva</a>.</p>",
+      "contentformat": 1,
+      "contentfiles": [
+        {
+          "filename": "programma.pdf",
+          "filepath": "/",
+          "filesize": 20480,
+          "fileurl": "https://webeep.polimi.it/webservice/pluginfile.php/1/mod_page/content/3/programma.pdf",
+          "timemodified": 1725500000,
+          "mimetype": "application/pdf",
+          "isexternalfile": false,
+          "repositorytype": ""
+        },
+        {
+          "filename": "calendario-lezioni.xlsx",
+          "filepath": "/",
+          "filesize": 10240,
+          "fileurl": "https://webeep.polimi.it/webservice/pluginfile.php/1/mod_page/content/3/calendario-lezioni.xlsx",
+          "timemodified": 1725500100,
+          "isexternalfile": false,
+          "repositorytype": ""
+        }
+      ],
+      "legacyfiles": 0,
+      "legacyfileslast": null,
+      "display": 5,
+      "displayoptions": "a:2:{s:10:\"printintro\";s:1:\"1\";s:17:\"printlastmodified\";s:1:\"1\";}",
+      "revision": 3,
+      "timemodified": 1725500200,
+      "section": 1,
+      "visible": 1,
+      "groupmode": 0,
+      "groupingid": 0
+    },
+    {
+      "id": 7002,
+      "coursemodule": 9011,
+      "course": 102,
+      "name": "Materiali integrativi",
+      "intro": "",
+      "introformat": 1,
+      "introfiles": [],
+      "content": "<p>Testo senza allegati, con un link a <a href=\"https://webeep.polimi.it/mod/page/view.php?id=9010\">la pagina di benvenuto</a>.</p>",
+      "contentformat": 1,
+      "contentfiles": [],
+      "legacyfiles": 0,
+      "legacyfileslast": null,
+      "display": 5,
+      "displayoptions": "a:2:{s:10:\"printintro\";s:1:\"0\";s:17:\"printlastmodified\";s:1:\"1\";}",
+      "revision": 1,
+      "timemodified": 1725300000,
+      "section": 2,
+      "visible": 1,
+      "groupmode": 0,
+      "groupingid": 0
+    }
+  ],
+  "warnings": [
+    {
+      "item": "page",
+      "itemid": 7003,
+      "warningcode": "1",
+      "message": "Pagina non visibile per questo utente"
+    }
+  ]
+}

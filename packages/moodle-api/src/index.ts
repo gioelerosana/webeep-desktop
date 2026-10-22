@@ -5,6 +5,7 @@ export {
   getCourseContents,
   getCourses,
   getNotifications,
+  getPages,
   getPublicConfig,
   getSiteInfo,
   getUpcomingEvents,
@@ -24,6 +25,8 @@ export {
   type ModuleContent,
   type MoodleNotification,
   type NotificationsPage,
+  type Page,
+  type PageFile,
   type PublicConfig,
   type SiteInfo,
 } from './schemas.js';

@@ -12,13 +12,14 @@ import type {
   CourseTimelineClassification,
   NotificationsPage,
 } from '@webeep/moodle-api';
-import type { AuthState, DownloadResult, FileRequest, Settings } from '../../../shared/ipc';
+import type { AuthState, CoursePage, DownloadResult, FileRequest, Settings } from '../../../shared/ipc';
 import { invoke } from './ipc';
 
 export const queryKeys = {
   auth: ['auth'] as const,
   courses: (classification: CourseTimelineClassification) => ['courses', classification] as const,
   courseContents: (courseId: number) => ['course-contents', courseId] as const,
+  coursePage: (courseId: number, moduleId: number) => ['course-page', courseId, moduleId] as const,
   upcomingEvents: ['upcoming-events'] as const,
   notifications: ['notifications'] as const,
   settings: ['settings'] as const,
@@ -62,6 +63,13 @@ export const useCourses = (classification: CourseTimelineClassification = 'inpro
 
 export const useCourseContents = (courseId: number): UseQueryResult<readonly CourseSection[]> =>
   useQuery({ queryKey: queryKeys.courseContents(courseId), queryFn: () => invoke('moodle:course-contents', courseId) });
+
+/** Contenuto di una pagina (`mod_page`): l'HTML è una stringa, da mostrare come testo e mai iniettare. */
+export const useCoursePage = (courseId: number, moduleId: number): UseQueryResult<CoursePage> =>
+  useQuery({
+    queryKey: queryKeys.coursePage(courseId, moduleId),
+    queryFn: () => invoke('course:page', { courseId, moduleId }),
+  });
 
 export const useUpcomingEvents = (): UseQueryResult<readonly CalendarEvent[]> =>
   useQuery({ queryKey: queryKeys.upcomingEvents, queryFn: () => invoke('moodle:upcoming-events') });

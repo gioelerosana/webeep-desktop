@@ -1,0 +1,7 @@
+{
+  "wwwroot": "https://webeep.polimi.it",
+  "sitename": "WeBeep",
+  "launchurl": "https://webeep.polimi.it/admin/tool/mobile/launch.php",
+  "typeoflogin": 2,
+  "enablemobilewebservice": 1
+}

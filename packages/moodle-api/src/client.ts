@@ -9,10 +9,18 @@
 import type { z } from 'zod';
 import { MoodleApiError, MoodleNetworkError, MoodleResponseShapeError } from './errors.js';
 import { encodeMoodleParams, type MoodleParams } from './params.js';
+import { resolveMultilangDeep } from './multilang.js';
 
 const REST_PATH = '/webservice/rest/server.php';
 const AJAX_NOLOGIN_PATH = '/lib/ajax/service-nologin.php';
 const REST_FORMAT = 'json';
+// Lingua dei testi multilingua di WeBeep, quando il client non ne indica un'altra.
+const DEFAULT_LANG = 'it';
+// Chiede al server di applicare i filtri (il multilingua) alle risposte. Non si
+// chiede `moodlewssettingfileurl`: cambierebbe gli URL dei file.
+const WS_SETTING_FILTER = 'true';
+const WS_SETTING_FILTER_PARAM = 'moodlewssettingfilter';
+const WS_SETTING_LANG_PARAM = 'moodlewssettinglang';
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -20,6 +28,8 @@ export type MoodleClientOptions = {
   readonly siteUrl: string;
   readonly token: string;
   readonly fetch?: FetchLike;
+  /** Lingua dei testi multilingua (codice a due lettere, es. "it"). Default "it". */
+  readonly lang?: string;
 };
 
 export type MoodleClient = {
@@ -41,7 +51,20 @@ const isMoodleErrorBody = (body: unknown): body is MoodleErrorBody =>
 // https://regex101.com/?regex=%5C%2F%2B%24&testString=https%3A%2F%2Fwebeep.polimi.it%2F%2F%0Ahttps%3A%2F%2Fwebeep.polimi.it&flavor=javascript
 const trimTrailingSlash = (url: string): string => url.replace(/\/+$/, '');
 
-const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams): Promise<unknown> => {
+/**
+ * Legge il corpo come JSON. WeBeep a volte risponde 200 con una pagina HTML
+ * (manutenzione, sessione SSO scaduta): diventa un errore di forma, non un
+ * SyntaxError generico.
+ */
+const readJson = async (response: Response, wsfunction: string): Promise<unknown> => {
+  try {
+    return await response.json();
+  } catch {
+    throw new MoodleResponseShapeError(wsfunction, 'la risposta non è JSON');
+  }
+};
+
+const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams, wsfunction: string): Promise<unknown> => {
   let response: Response;
   try {
     response = await fetchFn(url, {
@@ -53,7 +76,7 @@ const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams):
     throw new MoodleNetworkError(`Impossibile contattare ${url}`, undefined, { cause });
   }
   if (!response.ok) throw new MoodleNetworkError(`HTTP ${response.status} da ${url}`, response.status);
-  return response.json();
+  return readJson(response, wsfunction);
 };
 
 const parseWith = <TSchema extends z.ZodType>(wsfunction: string, schema: TSchema, body: unknown): z.output<TSchema> => {
@@ -65,6 +88,7 @@ const parseWith = <TSchema extends z.ZodType>(wsfunction: string, schema: TSchem
 export const createMoodleClient = (options: MoodleClientOptions): MoodleClient => {
   const siteUrl = trimTrailingSlash(options.siteUrl);
   const fetchFn: FetchLike = options.fetch ?? fetch;
+  const lang = options.lang ?? DEFAULT_LANG;
 
   const call = async <TSchema extends z.ZodType>(
     wsfunction: string,
@@ -76,8 +100,12 @@ export const createMoodleClient = (options: MoodleClientOptions): MoodleClient =
       wstoken: options.token,
       wsfunction,
       moodlewsrestformat: REST_FORMAT,
+      [WS_SETTING_FILTER_PARAM]: WS_SETTING_FILTER,
+      [WS_SETTING_LANG_PARAM]: lang,
     });
-    const body = await postForm(fetchFn, `${siteUrl}${REST_PATH}?wsfunction=${wsfunction}`, form);
+    const rawBody = await postForm(fetchFn, `${siteUrl}${REST_PATH}?wsfunction=${wsfunction}`, form, wsfunction);
+    // Il ripiego sul multilingua va prima di tutto il resto: anche i messaggi d'errore ne beneficiano.
+    const body = resolveMultilangDeep(rawBody, lang);
     if (isMoodleErrorBody(body)) throw new MoodleApiError(body.errorcode, body.message, wsfunction);
     return parseWith(wsfunction, schema, body);
   };
@@ -108,11 +136,11 @@ export const callPublicAjax = async <TSchema extends z.ZodType>(
     throw new MoodleNetworkError(`Impossibile contattare ${url}`, undefined, { cause });
   }
   if (!response.ok) throw new MoodleNetworkError(`HTTP ${response.status} da ${url}`, response.status);
-  const body: unknown = await response.json();
+  const body = await readJson(response, methodname);
   const first: unknown = Array.isArray(body) ? body[0] : undefined;
   if (typeof first !== 'object' || first === null || !('error' in first) || !('data' in first)) {
     throw new MoodleResponseShapeError(methodname, 'risposta AJAX senza { error, data }');
   }
   if (first.error) throw new MoodleApiError('ajaxerror', JSON.stringify(first.data), methodname);
-  return parseWith(methodname, schema, first.data);
+  return parseWith(methodname, schema, resolveMultilangDeep(first.data, DEFAULT_LANG));
 };

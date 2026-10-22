@@ -1,0 +1,75 @@
+# Release automatica: al push di un tag di versione `v*` builda l'AppImage Linux e
+# l'installer Windows (NSIS) e li pubblica in una GitHub Release. Nessuna firma del codice.
+# Il dispatch manuale costruisce solo gli artefatti (utile per provare): non crea la Release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            package: '--linux AppImage --x64'
+          - os: windows-latest
+            package: '--win nsis --x64'
+    runs-on: ${{ matrix.os }}
+    env:
+      # Niente firma: electron-builder non cerca certificati nel runner.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm va installato prima di setup-node, altrimenti la cache pnpm non trova il binario.
+      # Senza `version` legge il campo `packageManager` del package.json root.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build (typecheck e bundle electron-vite)
+        run: pnpm build
+
+      - name: Pacchettizzazione electron-builder
+        run: pnpm --filter @webeep/desktop exec electron-builder ${{ matrix.package }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.exe
+            apps/desktop/release/latest*.yml
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/*.AppImage
+            release-assets/*.exe
+            release-assets/latest*.yml
+          generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}

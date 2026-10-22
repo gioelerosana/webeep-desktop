@@ -48,6 +48,35 @@ export type DownloadResult = {
   readonly downloaded: boolean;
 };
 
+/** Identifica una pagina (`mod_page`) per id del modulo nel corso. */
+export type CoursePageRequest = {
+  readonly courseId: number;
+  readonly moduleId: number;
+};
+
+/** File allegato a una pagina. `fileurl` è già senza token: si apre con `files:open` / `files:download`. */
+export type CoursePageFile = {
+  readonly filename: string;
+  readonly filepath: string;
+  readonly filesize: number;
+  readonly fileurl: string;
+  readonly mimetype: string | undefined;
+  readonly timemodified: number | undefined;
+};
+
+/**
+ * Pagina del corso. `introHtml` e `contentHtml` sono HTML come stringa, senza token:
+ * il renderer li mostra come testo o con una whitelist, mai iniettandoli.
+ */
+export type CoursePage = {
+  readonly moduleId: number;
+  readonly name: string;
+  readonly introHtml: string;
+  readonly contentHtml: string;
+  readonly files: readonly CoursePageFile[];
+  readonly timemodified: number;
+};
+
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
   /** Apre la finestra di login Polimi; si risolve a login finito o annullato. */
@@ -59,6 +88,8 @@ export type IpcContract = {
   'moodle:upcoming-events': { readonly args: []; readonly result: readonly CalendarEvent[] };
   'moodle:notifications': { readonly args: []; readonly result: NotificationsPage };
   'moodle:mark-notification-read': { readonly args: [notificationId: number]; readonly result: null };
+  /** Pagina `mod_page` di un corso. Errore `invalid-input` se il modulo non è una pagina di quel corso. */
+  'course:page': { readonly args: [request: CoursePageRequest]; readonly result: CoursePage };
 
   /** Scarica nella cache dell'app e apre con l'applicazione predefinita. */
   'files:open': { readonly args: [file: FileRequest]; readonly result: null };
@@ -74,6 +105,12 @@ export type IpcContract = {
   'settings:update': { readonly args: [patch: Partial<Settings>]; readonly result: Settings };
   /** Dialogo nativo per scegliere la cartella dei download; `null` se annullato. */
   'settings:choose-download-dir': { readonly args: []; readonly result: string | null };
+
+  /** Controlli della barra del titolo disegnata dall'app (finestra senza cornice nativa). */
+  'window:minimize': { readonly args: []; readonly result: null };
+  'window:toggle-maximize': { readonly args: []; readonly result: null };
+  'window:close': { readonly args: []; readonly result: null };
+  'window:is-maximized': { readonly args: []; readonly result: boolean };
 };
 
 export type IpcChannel = keyof IpcContract;
@@ -94,17 +131,46 @@ export type IpcResult<TData> =
 /** Eventi spinti dal main al renderer. */
 export type IpcEvents = {
   'auth:changed': AuthState;
+  /** La finestra principale è stata massimizzata (`true`) o ripristinata (`false`). */
+  'window:maximized-changed': boolean;
 };
 export type IpcEventName = keyof IpcEvents;
 
+/**
+ * Canali che in modalità web (`WEBEEP_WEB=1`) il server non esegue mai: agirebbero
+ * sul computer che serve la pagina (sessione, file, browser, impostazioni, finestra)
+ * oppure non avrebbero una finestra a cui riferirsi. Il bridge web li gestisce nel
+ * browser (vedi `renderer/src/lib/http-bridge.ts`) o li rifiuta, senza chiamare il server.
+ */
+export const WEB_UNAVAILABLE_CHANNELS = [
+  'auth:login',
+  'auth:logout',
+  'files:download',
+  'files:open',
+  'files:reveal',
+  'settings:update',
+  'settings:choose-download-dir',
+  'shell:open-external',
+  'window:minimize',
+  'window:toggle-maximize',
+  'window:close',
+  'window:is-maximized',
+] as const satisfies readonly IpcChannel[];
+
+export type WebUnavailableChannel = (typeof WEB_UNAVAILABLE_CHANNELS)[number];
+
 /** Ciò che il preload espone come `window.webeep`. */
 export type WebeepBridge = {
+  /** Dove gira l'interfaccia: Electron, web in rete locale o bridge finto di sviluppo. */
+  readonly kind: 'electron' | 'web' | 'mock';
   readonly invoke: <TChannel extends IpcChannel>(
     channel: TChannel,
     ...args: IpcArgs<TChannel>
   ) => Promise<IpcResult<IpcReturn<TChannel>>>;
   /** Restituisce la funzione per annullare l'iscrizione. */
   readonly on: <TEvent extends IpcEventName>(event: TEvent, listener: (payload: IpcEvents[TEvent]) => void) => () => void;
+  /** URL con cui il renderer mostra un'immagine di WeBeep (copertine, avatar). */
+  readonly assetUrl: (fileUrl: string) => string;
   readonly platform: string;
 };
 

@@ -1,0 +1,27 @@
+{
+  "courses": [
+    {
+      "id": 101,
+      "fullname": "Analisi Matematica I",
+      "shortname": "AM1",
+      "summary": "",
+      "courseimage": "https://webeep.polimi.it/pluginfile.php/101/course/overviewfiles/am1.jpg",
+      "coursecategory": "Ingegneria",
+      "progress": 40,
+      "startdate": 1725148800,
+      "enddate": 1735689600,
+      "isfavourite": true,
+      "hidden": false,
+      "viewurl": "https://webeep.polimi.it/course/view.php?id=101"
+    },
+    {
+      "id": 102,
+      "fullname": "Fisica Generale",
+      "shortname": "FG",
+      "summary": "Corso introduttivo",
+      "isfavourite": 0,
+      "hidden": 0
+    }
+  ],
+  "nextoffset": 0
+}

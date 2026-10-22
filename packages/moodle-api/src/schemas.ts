@@ -54,10 +54,21 @@ export const coursesByTimelineSchema = z.object({
 export const COURSE_TIMELINE_CLASSIFICATIONS = ['all', 'inprogress', 'future', 'past', 'favourites', 'hidden'] as const;
 export type CourseTimelineClassification = (typeof COURSE_TIMELINE_CLASSIFICATIONS)[number];
 
+/**
+ * Moodle manda `filepath: null` sui file dei moduli `resource` (osservato su
+ * WeBeep): la chiave c'è ma non ha valore. Lo normalizziamo a `undefined`, che è
+ * il significato che il resto del codice si aspetta da un campo opzionale.
+ */
+const nullishToUndefined = <TValue>(value: TValue | null | undefined): TValue | undefined => value ?? undefined;
+
 export const moduleContentSchema = z.object({
   type: z.string(),
   filename: z.string(),
-  filepath: z.string().optional(),
+  filepath: z
+    .string()
+    .nullish()
+    .transform(nullishToUndefined)
+    .optional(),
   filesize: z.number().optional().default(0),
   fileurl: z.string().optional(),
   timemodified: unixSeconds.optional(),
@@ -157,3 +168,53 @@ export const publicConfigSchema = z.object({
   enablemobilewebservice: moodleBool,
 });
 export type PublicConfig = z.infer<typeof publicConfigSchema>;
+
+/**
+ * File allegati a una pagina (`contentfiles`, `introfiles`). Non hanno il campo
+ * `type` dei file dei moduli del corso, quindi non riusano `moduleContentSchema`.
+ */
+export const pageFileSchema = z.object({
+  filename: z.string(),
+  filepath: z
+    .string()
+    .nullish()
+    .transform(nullishToUndefined)
+    .optional(),
+  filesize: z.number().optional().default(0),
+  fileurl: z.string().optional(),
+  timemodified: unixSeconds.optional(),
+  mimetype: z.string().optional(),
+});
+export type PageFile = z.infer<typeof pageFileSchema>;
+
+/**
+ * Pagina `mod_page`. `coursemodule` è l'id del modulo nel corso, lo stesso di
+ * `core_course_get_contents` (`modules[].id`). `content` è HTML: va mostrato
+ * come testo, non iniettato (vedi AGENTS.md).
+ */
+export const pageSchema = z.object({
+  id: z.number().int(),
+  coursemodule: z.number().int(),
+  course: z.number().int(),
+  name: z.string(),
+  intro: z.string().optional().default(''),
+  introfiles: z.array(pageFileSchema).optional().default([]),
+  content: z.string(),
+  contentformat: z.number().int().optional(),
+  contentfiles: z.array(pageFileSchema).optional().default([]),
+  timemodified: unixSeconds,
+  revision: z.number().int().optional(),
+});
+export type Page = z.infer<typeof pageSchema>;
+
+const moodleWarningSchema = z.object({
+  item: z.string(),
+  itemid: z.number().int(),
+  warningcode: z.string(),
+  message: z.string(),
+});
+
+export const pagesByCoursesSchema = z.object({
+  pages: z.array(pageSchema),
+  warnings: z.array(moodleWarningSchema).optional().default([]),
+});

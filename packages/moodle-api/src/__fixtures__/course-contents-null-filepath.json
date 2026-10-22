@@ -1,0 +1,52 @@
+[
+  {
+    "id": 7001,
+    "name": "Modulo di esempio",
+    "summary": "<p>Materiali di prova</p>",
+    "section": 1,
+    "visible": 1,
+    "uservisible": true,
+    "modules": [
+      {
+        "id": 8001,
+        "name": "Lezione di prova",
+        "modname": "resource",
+        "instance": 11,
+        "visible": 1,
+        "uservisible": true,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "appunti-esempio.pdf",
+            "filepath": null,
+            "filesize": 10240,
+            "fileurl": "https://webeep.polimi.it/webservice/pluginfile.php/2/mod_resource/content/1/appunti-esempio.pdf",
+            "timemodified": 1725500000,
+            "mimetype": "application/pdf",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": 8002,
+        "name": "Cartella di esempio",
+        "modname": "folder",
+        "instance": 12,
+        "visible": 1,
+        "uservisible": true,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "slide-esempio.pptx",
+            "filepath": null,
+            "filesize": 20480,
+            "fileurl": "https://webeep.polimi.it/webservice/pluginfile.php/2/mod_folder/content/1/slide-esempio.pptx",
+            "timemodified": 1725500100,
+            "mimetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "author": null
+          }
+        ]
+      }
+    ]
+  }
+]

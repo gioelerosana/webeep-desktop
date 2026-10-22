@@ -18,6 +18,7 @@ delle funzioni disponibili:
 | `core_calendar_get_action_events_by_timesort` | `getUpcomingEvents` | scadenze (sequenza temporale) |
 | `message_popup_get_popup_notifications` | `getNotifications` | notifiche |
 | `core_message_mark_notification_read` | `markNotificationRead` | segna una notifica come letta |
+| `mod_page_get_pages_by_courses` | `getPages` | pagine (`mod_page`) di uno o più corsi: HTML e file allegati |
 
 ## Candidate per le prossime feature
 

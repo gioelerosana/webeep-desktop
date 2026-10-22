@@ -55,3 +55,45 @@ const WHITESPACE_RUNS = /\s+/g;
 /** Testo semplice da un frammento HTML di Moodle (riepiloghi, descrizioni, notifiche). */
 export const htmlToText = (html: string): string =>
   (new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '').replace(WHITESPACE_RUNS, ' ').trim();
+
+// Docente tra parentesi in fondo al nome del corso Polimi: "CHIMICA GENERALE (ROSSI LUCA)" cattura "ROSSI LUCA";
+// "CHIMICA GENERALE" non corrisponde.
+// https://regex101.com/?regex=%5Cs*%5C(%28%5B%5E()%5D%2B%29%5C)%5Cs*%24&testString=CHIMICA%20GENERALE%20(ROSSI%20LUCA)%0ACHIMICA%20GENERALE&flavor=javascript
+const TRAILING_TEACHER = /\s*\(([^()]+)\)\s*$/;
+// Parole da lasciare maiuscole: numeri romani e sigle con punti o parentesi quadre ("II", "[C.I.]");
+// "ANALISI" non corrisponde.
+// https://regex101.com/?regex=%5E(%3F%3A%5BIVX%5D%2B%7C%5C%5B.*%5C%5D%7C.*%5C..*)%24&testString=II%0A%5BC.I.%5D%0AANALISI&flavor=javascript
+const KEEP_UPPERCASE = /^(?:[IVX]+|\[.*\]|.*\..*)$/;
+const MINOR_WORDS: ReadonlySet<string> = new Set(['di', 'e', 'del', 'della', 'delle', 'dei', 'degli', 'per', 'con', 'in', 'a', 'da', 'su', 'la', 'il', 'lo', 'le', 'gli', 'ed']);
+
+const capitalize = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
+
+const toTitleCase = (text: string): string =>
+  text
+    .split(' ')
+    .filter(Boolean)
+    .map((word, index) => {
+      if (KEEP_UPPERCASE.test(word)) return word;
+      const lower = word.toLocaleLowerCase(LOCALE);
+      return index && MINOR_WORDS.has(lower) ? lower : capitalize(lower);
+    })
+    .join(' ');
+
+const isAllCaps = (text: string): boolean => text === text.toLocaleUpperCase(LOCALE);
+
+export type CourseName = {
+  /** "Analisi Matematica 1 [C.I.]" */
+  readonly title: string;
+  /** "Formiggini Maria", se presente tra parentesi. */
+  readonly teacher: string | undefined;
+};
+
+/** Rende leggibile un nome corso Polimi ("ANALISI MATEMATICA 1 [C.I.] (FORMIGGINI MARIA)"). */
+export const parseCourseName = (fullname: string): CourseName => {
+  const match = TRAILING_TEACHER.exec(fullname);
+  const rawTitle = match ? fullname.slice(0, match.index) : fullname;
+  const rawTeacher = match?.[1];
+  const title = isAllCaps(rawTitle) ? toTitleCase(rawTitle) : rawTitle.trim();
+  const teacher = rawTeacher && isAllCaps(rawTeacher) ? toTitleCase(rawTeacher) : rawTeacher?.trim();
+  return { title, teacher };
+};

@@ -1,17 +1,28 @@
 /*
  * Entry del main process: ciclo di vita dell'app e finestra principale.
  */
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell, type BrowserWindowConstructorOptions } from 'electron';
 import { join } from 'node:path';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
+import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
 import { registerIpcHandlers } from './handlers.js';
+import { isWebMode, startWebServer } from './web-server.js';
 
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 820;
 const MIN_WINDOW_WIDTH = 900;
 const MIN_WINDOW_HEIGHT = 600;
 const EXTERNAL_PROTOCOLS: readonly string[] = ['http:', 'https:'];
+const SINGLE_INSTANCE_MESSAGE =
+  'WeBeep Desktop è già aperto: la finestra esistente viene portata in primo piano. ' +
+  "Se non compare, chiudi l'istanza precedente (per esempio pnpm dev o pnpm web).";
+/**
+ * La barra del titolo è disegnata dall'app (canali `window:*`). Su macOS si tiene
+ * il titolo nativo nascosto, così restano i semafori; altrove la cornice va tolta.
+ */
+const WINDOW_CHROME: BrowserWindowConstructorOptions =
+  process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : { frame: false };
 
 registerAssetScheme();
 
@@ -24,6 +35,7 @@ const createMainWindow = (): BrowserWindow => {
     title: 'WeBeep',
     show: false,
     autoHideMenuBar: true,
+    ...WINDOW_CHROME,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -33,6 +45,8 @@ const createMainWindow = (): BrowserWindow => {
   });
 
   window.once('ready-to-show', () => window.show());
+  window.on('maximize', () => window.webContents.send('window:maximized-changed', true));
+  window.on('unmaximize', () => window.webContents.send('window:maximized-changed', false));
 
   // Nessuna nuova finestra dal renderer: i link http(s) vanno nel browser di sistema.
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -53,6 +67,19 @@ const start = async (): Promise<void> => {
   handleAssetProtocol();
   registerIpcHandlers();
   await restoreSession();
+  // Modalità web: il server serve l'interfaccia in rete locale, quindi nessuna finestra e nessun quit.
+  if (isWebMode()) {
+    await startWebServer();
+    return;
+  }
+  if (isDiagnoseMode()) {
+    try {
+      await runDiagnosis();
+    } finally {
+      app.quit();
+    }
+    return;
+  }
   createMainWindow();
 
   app.on('activate', () => {
@@ -60,8 +87,19 @@ const start = async (): Promise<void> => {
   });
 };
 
-if (!app.requestSingleInstanceLock()) {
+/**
+ * Seconda istanza: esce subito, ma prima avvisa. L'app impacchettata non ha un terminale,
+ * quindi un `console.warn` non si vede e sembra che la finestra non si apra mai.
+ * Il lock è condiviso con `pnpm dev` e `pnpm web` (stessa cartella dati).
+ */
+const quitDuplicateInstance = async (): Promise<void> => {
+  await app.whenReady();
+  dialog.showMessageBoxSync({ type: 'info', message: SINGLE_INSTANCE_MESSAGE, buttons: ['OK'] });
   app.quit();
+};
+
+if (!app.requestSingleInstanceLock()) {
+  void quitDuplicateInstance();
 } else {
   app.on('second-instance', () => {
     const [window] = BrowserWindow.getAllWindows();
@@ -70,7 +108,8 @@ if (!app.requestSingleInstanceLock()) {
     window.focus();
   });
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // In modalità web il processo serve la rete anche senza finestre: non deve uscire.
+    if (process.platform !== 'darwin' && !isWebMode()) app.quit();
   });
   void start();
 }

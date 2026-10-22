@@ -1,0 +1,26 @@
+{
+  "notifications": [
+    {
+      "id": 3001,
+      "subject": "Nuovo avviso",
+      "shortenedsubject": "Nuovo avviso",
+      "smallmessage": "E' stato pubblicato un avviso",
+      "fullmessagehtml": null,
+      "contexturl": "https://webeep.polimi.it/mod/forum/view.php?id=9002",
+      "contexturlname": "Forum avvisi",
+      "component": "mod_forum",
+      "eventtype": "posts",
+      "timecreated": 1725600000,
+      "read": 0,
+      "iconurl": "https://webeep.polimi.it/theme/image.php/forum"
+    },
+    {
+      "id": 3002,
+      "subject": "Consegna registrata",
+      "smallmessage": null,
+      "timecreated": 1725500000,
+      "read": true
+    }
+  ],
+  "unreadcount": 1
+}
