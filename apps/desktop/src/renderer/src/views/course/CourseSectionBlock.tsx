@@ -1,18 +1,23 @@
 import { Card, cn } from '@webeep/ui-kit';
 import { ChevronDown } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { hasRichContent } from '../../components/rich-html/parseRichHtml';
+import type { RichLinkRenderer } from '../../components/rich-html/RichLink';
 import type { CourseSectionView } from './courseContent';
 import { ModuleRow } from './ModuleRow';
+import { SectionSummary } from './SectionSummary';
 import type { CourseFileActions } from './useCourseFileActions';
 
 export type CourseSectionBlockProps = {
   readonly view: CourseSectionView;
   readonly fileActions: CourseFileActions;
   readonly onOpenPage: (moduleId: number) => void;
+  /** Link di questa sezione: il sommario e le etichette li risolvono con la sezione in cui si trovano. */
+  readonly renderLink: RichLinkRenderer;
 };
 
 /** Sezione del corso: un blocco richiudibile, aperto di default. */
-export const CourseSectionBlock = ({ view, fileActions, onOpenPage }: CourseSectionBlockProps): ReactNode => {
+export const CourseSectionBlock = ({ view, fileActions, onOpenPage, renderLink }: CourseSectionBlockProps): ReactNode => {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -32,10 +37,17 @@ export const CourseSectionBlock = ({ view, fileActions, onOpenPage }: CourseSect
       </button>
       {expanded ? (
         <div className="flex flex-col border-t">
-          {view.summary !== '' ? <p className="px-4 py-3 text-sm text-muted-foreground">{view.summary}</p> : null}
+          {hasRichContent(view.summary) ? <SectionSummary nodes={view.summary} renderLink={renderLink} /> : null}
           <div className="divide-y border-t">
             {view.rows.map((row, index) => (
-              <ModuleRow key={index} row={row} sectionName={view.name} fileActions={fileActions} onOpenPage={onOpenPage} />
+              <ModuleRow
+                key={index}
+                row={row}
+                sectionName={view.name}
+                fileActions={fileActions}
+                onOpenPage={onOpenPage}
+                renderLink={renderLink}
+              />
             ))}
           </div>
         </div>

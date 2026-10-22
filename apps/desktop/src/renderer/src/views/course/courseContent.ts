@@ -5,6 +5,7 @@
  */
 import type { Course, CourseModule, CourseSection, ModuleContent } from '@webeep/moodle-api';
 import type { FileRequest } from '../../../../shared/ipc';
+import { hasRichContent, parseRichHtml, type RichNode } from '../../components/rich-html/parseRichHtml';
 import { formatDateTime, formatFileSize, htmlToText, parseCourseName } from '../../lib/format';
 
 const LOCALE = 'it-IT';
@@ -38,7 +39,7 @@ export type FileMetaSource = {
 
 /** Una riga di modulo già classificata: la vista sceglie il componente dal `kind`. */
 export type CourseRow =
-  | { readonly kind: 'text'; readonly module: CourseModule; readonly text: string }
+  | { readonly kind: 'label'; readonly module: CourseModule; readonly nodes: readonly RichNode[] }
   | { readonly kind: 'page'; readonly module: CourseModule }
   | { readonly kind: 'link'; readonly module: CourseModule; readonly url: string | undefined }
   | { readonly kind: 'file'; readonly module: CourseModule; readonly file: CourseFile }
@@ -47,7 +48,8 @@ export type CourseRow =
 export type CourseSectionView = {
   readonly id: number;
   readonly name: string;
-  readonly summary: string;
+  /** Sommario già parsato: la vista lo mostra come HTML, senza passare dal testo piatto. */
+  readonly summary: readonly RichNode[];
   readonly rows: readonly CourseRow[];
   readonly fileCount: number;
 };
@@ -70,8 +72,10 @@ const toModuleRow = (module: CourseModule, query: string): CourseRow | undefined
   const files = module.contents.filter(isCourseFile);
 
   if (module.modname === LABEL_MODNAME) {
-    const text = htmlToText(module.description ?? '');
-    return text !== '' && matches(query, text) ? { kind: 'text', module, text } : undefined;
+    const description = module.description ?? '';
+    const nodes = parseRichHtml(description);
+    // La ricerca usa il testo piatto; la resa usa l'albero HTML. Un'etichetta senza contenuto visibile non è una riga.
+    return hasRichContent(nodes) && matches(query, htmlToText(description)) ? { kind: 'label', module, nodes } : undefined;
   }
 
   // La pagina si apre nell'app: il suo contenuto non sta nell'elenco del corso, quindi basta il nome.
@@ -115,12 +119,12 @@ export const buildSectionViews = (sections: readonly CourseSection[], query: str
       return {
         id: section.id,
         name: section.name,
-        summary: htmlToText(section.summary),
+        summary: parseRichHtml(section.summary),
         rows,
         fileCount: rows.flatMap(rowFiles).length,
       };
     })
-    .filter((view) => (normalized ? view.rows.length > 0 : view.rows.length > 0 || view.summary !== ''));
+    .filter((view) => (normalized ? view.rows.length > 0 : view.rows.length > 0 || hasRichContent(view.summary)));
 };
 
 /** Estensione in maiuscolo, se il nome ha un punto dopo il primo carattere: "Esercizi-03.pdf" → "PDF". */

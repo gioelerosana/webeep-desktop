@@ -107,7 +107,15 @@ export const CourseView = ({ courseId }: CourseViewProps): ReactNode => {
           }
         />
       ) : null}
-      {contents.isSuccess ? <CourseSections views={views} query={query} fileActions={fileActions} onOpenPage={setOpenPageId} /> : null}
+      {contents.isSuccess ? (
+        <CourseSections
+          views={views}
+          query={query}
+          locations={locations}
+          fileActions={fileActions}
+          onOpenPage={setOpenPageId}
+        />
+      ) : null}
     </Page>
   );
 };

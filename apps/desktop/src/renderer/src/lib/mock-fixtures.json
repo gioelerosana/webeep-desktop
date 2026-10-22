@@ -26,7 +26,8 @@
       ]
     },
     {
-      "id": 2, "name": "Lezioni", "section": 1, "summary": "",
+      "id": 2, "name": "Lezioni", "section": 1,
+      "summary": "<p>Il corso si articola in lezioni teoriche e in esercitazioni settimanali. Le <b>slide</b> delle prime lezioni sono nella cartella <a href=\"https://webeep.polimi.it/mod/folder/view.php?id=21\">Slide lezioni 1-5</a>, mentre le registrazioni stanno su <a href=\"https://politecnicomilano.webex.com\">Webex</a>.</p><p>Prima di ogni lezione conviene:</p><ul><li>rileggere le slide della lezione precedente</li><li>provare almeno <em>un</em> esercizio sul libro di testo</li><li>annotare i dubbi da portare al ricevimento</li></ul><p>Ordine di studio consigliato:</p><ol><li>teoria, dalla pagina della lezione</li><li>esempi svolti in aula</li><li>esercizi del quiz di autovalutazione</li></ol><p>Nota sulle date:<br>le lezioni del giovedì si svolgono in aula T.2.1<br>le lezioni di recupero sono annunciate sugli avvisi</p><p>Il programma è indicativo: gli argomenti possono <i>spostarsi</i> di una settimana in base al ritmo della classe. Gli eventuali cambi vengono comunicati nel forum degli avvisi, che resta la fonte ufficiale.</p><p>Per approfondire la teoria, il materiale di riferimento è citato nella <a href=\"https://www.polimi.it/\">pagina del Politecnico</a>; la bibliografia completa è nella sezione Risorse extra.</p>",
       "modules": [
         { "id": 21, "name": "Slide lezioni 1-5", "modname": "folder", "files": [
           { "name": "L01 Introduzione.pdf", "size": 2400000, "daysAgo": 30 },
@@ -41,11 +42,27 @@
       ]
     },
     {
-      "id": 3, "name": "Esercitazioni", "section": 2, "summary": "",
+      "id": 3, "name": "Esercitazioni", "section": 2,
+      "summary": "<p>Le esercitazioni si svolgono il <strong>venerdì</strong> in aula informatica. Consegna: <a href=\"https://webeep.polimi.it/mod/assign/view.php?id=32\">Consegna homework 1</a>.</p>",
       "modules": [
         { "id": 31, "name": "Esercizi settimana 3", "modname": "resource", "files": [{ "name": "Esercizi-03.pdf", "size": 420000, "daysAgo": 2 }] },
         { "id": 32, "name": "Consegna homework 1", "modname": "assign", "url": "https://webeep.polimi.it/mod/assign/view.php?id=32", "files": [] },
-        { "id": 33, "name": "Quiz di autovalutazione", "modname": "quiz", "url": "https://webeep.polimi.it/mod/quiz/view.php?id=33", "files": [] }
+        { "id": 33, "name": "Quiz di autovalutazione", "modname": "quiz", "url": "https://webeep.polimi.it/mod/quiz/view.php?id=33", "files": [] },
+        { "id": 34, "name": "Porta la calcolatrice", "modname": "label", "description": "<p>Per le esercitazioni porta una <b>calcolatrice scientifica</b> non programmabile.</p><p><img src=\"https://webeep.polimi.it/webservice/pluginfile.php/123/mod_label/intro/1/calcolatrice.png\" alt=\"Calcolatrice scientifica di esempio\"></p><p>Il modello è <i>libero</i>, purché non acceda a internet.</p>", "files": [] }
+      ]
+    },
+    {
+      "id": 4, "name": "Risorse extra", "section": 3,
+      "summary": "<p></p>",
+      "modules": [
+        { "id": 41, "name": "Bibliografia consigliata", "modname": "url", "externalUrl": "https://www.polimi.it/", "files": [] }
+      ]
+    },
+    {
+      "id": 5, "name": "Note del docente", "section": 4,
+      "summary": "<p><br></p>",
+      "modules": [
+        { "id": 51, "name": "Forum studenti", "modname": "forum", "url": "https://webeep.polimi.it/mod/forum/view.php?id=51", "files": [] }
       ]
     }
   ],
