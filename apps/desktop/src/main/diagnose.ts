@@ -6,6 +6,11 @@
  * personali: solo nomi di funzione, esiti, classi d'errore, conteggi e, per gli
  * errori di forma, il percorso zod che fallisce e il TIPO del valore reale.
  *
+ * Con `WEBEEP_DIAGNOSE_COURSE=<nome>` (sottostringa, senza distinzione di maiuscole)
+ * stampa anche la struttura dei corsi che corrispondono: sezioni, moduli, tipi e nomi
+ * di file, percorso degli URL interni e solo il dominio di quelli esterni. Di description,
+ * content e file non esce mai il contenuto, solo lunghezze e presenza.
+ *
  * Il corpo grezzo della risposta resta in memoria, solo per leggerne i tipi.
  */
 import { z } from 'zod';
@@ -13,20 +18,59 @@ import {
   createMoodleClient,
   getCourseContents,
   getCourses,
+  MoodleApiError,
   MoodleResponseShapeError,
   WEBEEP_SITE_URL,
   type Course,
+  type CourseModule,
   type CourseSection,
   type FetchLike,
+  type ModuleContent,
   type MoodleClient,
 } from '@webeep/moodle-api';
 import { getActiveToken, getAuthState } from './auth.js';
 
+const WEBEEP_ORIGIN = new URL(WEBEEP_SITE_URL).origin;
 const DIAGNOSE_ENV_VAR = 'WEBEEP_DIAGNOSE';
 const DIAGNOSE_ENABLED_VALUE = '1';
+const COURSE_FILTER_ENV_VAR = 'WEBEEP_DIAGNOSE_COURSE';
 const LOG_PREFIX = '[diagnosi]';
 const ISSUE_INDENT = '  ';
+const LIST_INDENT = '  ';
+const ITEM_INDENT = '    ';
+const CONTENT_INDENT = '      ';
 const MISSING_VALUE_TYPE = 'assente';
+const REDACTED_TOKEN = 'token=<oscurato>';
+const SITE_INFO_WS = 'core_webservice_get_site_info';
+const SITE_FUNCTIONS_KEY = 'functions';
+const SITE_FUNCTION_NAME_KEY = 'name';
+const CONTENT_FIELD_KEY = 'content';
+
+/** Funzioni che l'app potrebbe usare per risorse, link, cartelle, pagine e libri: il sito le dichiara o no. */
+const REQUIRED_WS_FUNCTIONS: readonly string[] = [
+  'mod_page_get_pages_by_courses',
+  'mod_book_get_books_by_courses',
+  'mod_resource_get_resources_by_courses',
+  'mod_url_get_urls_by_courses',
+  'mod_folder_get_folders_by_courses',
+  'core_course_get_module',
+  'core_course_get_course_module',
+];
+
+const PAGE_LIKE_MODNAMES = ['page', 'book'] as const;
+type PageLikeModname = (typeof PAGE_LIKE_MODNAMES)[number];
+type PageLikeCall = { readonly wsfunction: string; readonly collectionKey: string };
+const PAGE_LIKE_CALLS: Readonly<Record<PageLikeModname, PageLikeCall>> = {
+  page: { wsfunction: 'mod_page_get_pages_by_courses', collectionKey: 'pages' },
+  book: { wsfunction: 'mod_book_get_books_by_courses', collectionKey: 'books' },
+};
+
+/**
+ * Parametro `token=` (anche dentro `wstoken=`) in query o in testo, qualunque sia la maiuscolatura.
+ * Passa: "https://webeep.polimi.it/x?id=1&token=abc". Non passa: "https://webeep.polimi.it/x?id=1".
+ * https://regex101.com/?regex=token%3D%5B%5E%26%5Cs%5D*&testString=https%3A%2F%2Fwebeep.polimi.it%2Fx%3Fid%3D1%26token%3Dabc&flags=gi&flavor=javascript
+ */
+const TOKEN_PARAM_PATTERN = /token=[^&\s]*/gi;
 
 type PathKey = string | number;
 
@@ -47,13 +91,23 @@ type CapturingFetch = {
   readonly body: () => unknown;
 };
 
+type CourseContentsProbe = {
+  readonly course: Course;
+  readonly outcome: Outcome<readonly CourseSection[]>;
+};
+
 export const isDiagnoseMode = (): boolean => process.env[DIAGNOSE_ENV_VAR] === DIAGNOSE_ENABLED_VALUE;
 
+/** Rete di sicurezza: nessuna riga di log esce con un parametro token, qualunque sia la sua origine. */
+const redactTokens = (text: string): string => text.replace(TOKEN_PARAM_PATTERN, REDACTED_TOKEN);
+
 const log = (line: string): void => {
-  console.log(`${LOG_PREFIX} ${line}`);
+  console.log(`${LOG_PREFIX} ${redactTokens(line)}`);
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const isUnknownArray = (value: unknown): value is readonly unknown[] => Array.isArray(value);
 
 const childOf = (node: unknown, key: PathKey): unknown => (isRecord(node) ? node[String(key)] : undefined);
 
@@ -91,6 +145,9 @@ const describeIssues = (raw: string, body: unknown): readonly string[] => {
 const describeError = (error: unknown, body: unknown): readonly string[] => {
   if (error instanceof MoodleResponseShapeError) {
     return [`ERRORE MoodleResponseShapeError (${error.wsfunction})`, ...describeIssues(error.issues, body)];
+  }
+  if (error instanceof MoodleApiError) {
+    return [`ERRORE MoodleApiError (${error.errorCode}, ${error.wsfunction}): ${error.message}`];
   }
   const name = error instanceof Error ? error.name : 'NonError';
   const message = error instanceof Error ? error.message : String(error);
@@ -150,6 +207,131 @@ const printOutcome = (outcome: Outcome<unknown>): boolean => {
   return outcome.result !== undefined;
 };
 
+/**
+ * Query e frammenti (dove Moodle mette il token dei file) non escono mai. Per i link interni
+ * si mostra il percorso; per quelli esterni solo il dominio, perché il percorso di molti link
+ * (es. le condivisioni) contiene identificativi che alla diagnosi non servono.
+ */
+const describeUrl = (raw: string | undefined): string => {
+  if (raw === undefined) return MISSING_VALUE_TYPE;
+  if (!URL.canParse(raw, WEBEEP_SITE_URL)) return 'url non valido';
+  const url = new URL(raw, WEBEEP_SITE_URL);
+  if (url.origin === WEBEEP_ORIGIN) return url.pathname;
+  return `esterno ${url.host}`;
+};
+
+/** Solo la lunghezza: la descrizione di un modulo può contenere testo personale o HTML. */
+const describeDescription = (description: string | undefined): string =>
+  description === undefined ? MISSING_VALUE_TYPE : `${description.length} caratteri`;
+
+const describeContentLength = (content: unknown): string =>
+  typeof content === 'string' ? String(content.length) : MISSING_VALUE_TYPE;
+
+const describeContent = (content: ModuleContent): string =>
+  `${content.type} | file: ${content.filename} | mimetype: ${content.mimetype ?? MISSING_VALUE_TYPE} | fileurl: ${describeUrl(content.fileurl)}`;
+
+const describeModule = (module: CourseModule): readonly string[] => [
+  `${ITEM_INDENT}- id ${module.id} | ${module.modname} | "${module.name}" | descrizione: ${describeDescription(module.description)} | url: ${describeUrl(module.url)}`,
+  ...module.contents.map((content) => `${CONTENT_INDENT}contenuto: ${describeContent(content)}`),
+];
+
+const describeSection = (section: CourseSection): readonly string[] => [
+  `${LIST_INDENT}sezione "${section.name}" (${section.modules.length} moduli)`,
+  ...section.modules.flatMap(describeModule),
+];
+
+/** Riassume una lista di pagine o libri: solo conteggi, lunghezze di `content` e nomi delle chiavi. */
+const summarizeCollection = (collectionKey: string, result: unknown): string => {
+  const items = childOf(result, collectionKey);
+  if (!isUnknownArray(items)) return `campo "${collectionKey}" assente o non è una lista`;
+  const contentLengths = items.map((item) => describeContentLength(childOf(item, CONTENT_FIELD_KEY)));
+  const [first] = items;
+  const firstKeys = isRecord(first) ? Object.keys(first) : [];
+  return `${items.length} elementi, lunghezze content: ${contentLengths.join(', ') || 'nessuna'}, chiavi del primo: ${firstKeys.join(', ') || 'nessuna'}`;
+};
+
+const siteFunctionNames = (siteInfo: unknown): readonly string[] => {
+  const functions = childOf(siteInfo, SITE_FUNCTIONS_KEY);
+  if (!isUnknownArray(functions)) return [];
+  return functions
+    .map((entry) => childOf(entry, SITE_FUNCTION_NAME_KEY))
+    .filter((name): name is string => typeof name === 'string');
+};
+
+/** Dice quali funzioni WS il sito dichiara: la chiamata grezza non passa per gli schemi dell'app. */
+const inspectSiteFunctions = async (): Promise<boolean> => {
+  const outcome = await probe(
+    `${SITE_INFO_WS} (funzioni)`,
+    (client) => client.call(SITE_INFO_WS, {}, z.unknown()),
+    (siteInfo) => `${siteFunctionNames(siteInfo).length} funzioni dichiarate`,
+  );
+  const available = siteFunctionNames(outcome.result);
+  const ok = printOutcome(outcome);
+  REQUIRED_WS_FUNCTIONS.forEach((name) =>
+    log(`${LIST_INDENT}${name}: ${available.includes(name) ? 'disponibile' : 'non dichiarata'}`),
+  );
+  return ok;
+};
+
+const probePageLike = (course: Course, modname: PageLikeModname): Promise<Outcome<unknown>> => {
+  const { wsfunction, collectionKey } = PAGE_LIKE_CALLS[modname];
+  return probe(
+    `${wsfunction} (corso ${course.id})`,
+    (client) => client.call(wsfunction, { courseids: [course.id] }, z.unknown()),
+    (result) => summarizeCollection(collectionKey, result),
+  );
+};
+
+/** Stampa la struttura di un corso e, per pagine e libri presenti, la chiamata grezza dedicata. */
+const inspectCourse = async (course: Course, sections: readonly CourseSection[]): Promise<readonly boolean[]> => {
+  log(`corso "${course.fullname}" (id ${course.id}): ${sections.length} sezioni`);
+  sections.flatMap(describeSection).forEach(log);
+  const modnames = new Set(sections.flatMap((section) => section.modules.map((module) => module.modname)));
+  const pageLikeModnames = PAGE_LIKE_MODNAMES.filter((modname) => modnames.has(modname));
+  const outcomes = await Promise.all(pageLikeModnames.map((modname) => probePageLike(course, modname)));
+  return outcomes.map(printOutcome);
+};
+
+const inspectCourseProbe = async ({ course, outcome }: CourseContentsProbe): Promise<readonly boolean[]> => {
+  if (outcome.result === undefined) {
+    log(`corso "${course.fullname}": contenuti non letti (vedi sopra)`);
+    return [];
+  }
+  return inspectCourse(course, outcome.result);
+};
+
+const matchesCourse = (course: Course, needle: string): boolean =>
+  [course.fullname, course.shortname].some((name) => name.toLocaleLowerCase().includes(needle));
+
+/** Se nessun corso corrisponde, elenca i nomi disponibili per correggere il filtro. */
+const inspectMatchingCourses = async (
+  probes: readonly CourseContentsProbe[],
+  filter: string,
+): Promise<readonly boolean[]> => {
+  const needle = filter.toLocaleLowerCase();
+  const matches = probes.filter(({ course }) => matchesCourse(course, needle));
+  if (matches.length === 0) {
+    const names = probes.map(({ course }) => course.fullname).join(' | ');
+    log(`nessun corso corrisponde al filtro "${filter}". Corsi disponibili: ${names}`);
+    return [];
+  }
+  const inspected = await Promise.all(matches.map(inspectCourseProbe));
+  return inspected.flat();
+};
+
+/** Filtro opzionale da `WEBEEP_DIAGNOSE_COURSE`; vuoto o solo spazi equivale a non impostato. */
+const readCourseFilter = (): string | undefined => {
+  const value = process.env[COURSE_FILTER_ENV_VAR]?.trim() ?? '';
+  return value === '' ? undefined : value;
+};
+
+/** Dettaglio opt-in: funzioni dichiarate dal sito, poi struttura dei corsi che corrispondono. */
+const inspectDetail = async (probes: readonly CourseContentsProbe[], filter: string): Promise<readonly boolean[]> => {
+  const siteOk = await inspectSiteFunctions();
+  const courseResults = await inspectMatchingCourses(probes, filter);
+  return [siteOk, ...courseResults];
+};
+
 /** Esegue la diagnosi e stampa il risultato. Ritorna `true` se tutte le chiamate sono riuscite. */
 export const runDiagnosis = async (): Promise<boolean> => {
   const session = getAuthState();
@@ -165,19 +347,23 @@ export const runDiagnosis = async (): Promise<boolean> => {
   const all = await probe(allName, (client) => getCourses(client, 'all'), summarizeCourses);
 
   const courses = all.result ?? [];
-  const contentOutcomes = await Promise.all(
-    courses.map((course, index) =>
-      probe(
+  const contentProbes: readonly CourseContentsProbe[] = await Promise.all(
+    courses.map(async (course, index) => ({
+      course,
+      outcome: await probe(
         `core_course_get_contents (corso ${index + 1}/${courses.length})`,
         (client) => getCourseContents(client, course.id),
         summarizeSections,
       ),
-    ),
+    })),
   );
 
-  const outcomes: readonly Outcome<unknown>[] = [inProgress, all, ...contentOutcomes];
+  const outcomes: readonly Outcome<unknown>[] = [inProgress, all, ...contentProbes.map(({ outcome }) => outcome)];
   const results = outcomes.map(printOutcome);
-  const failed = results.filter((ok) => !ok).length;
-  log(failed === 0 ? 'esito: tutte le chiamate ok' : `esito: ${failed} chiamate fallite su ${results.length}`);
+  const filter = readCourseFilter();
+  const detailResults = filter === undefined ? [] : await inspectDetail(contentProbes, filter);
+  const allResults = [...results, ...detailResults];
+  const failed = allResults.filter((ok) => !ok).length;
+  log(failed === 0 ? 'esito: tutte le chiamate ok' : `esito: ${failed} chiamate fallite su ${allResults.length}`);
   return failed === 0;
 };
