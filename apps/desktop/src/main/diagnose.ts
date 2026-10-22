@@ -12,6 +12,12 @@
  * content e file non esce mai il contenuto, solo lunghezze e presenza.
  *
  * Il corpo grezzo della risposta resta in memoria, solo per leggerne i tipi.
+ *
+ * Con `WEBEEP_DIAGNOSE_FUNCTIONS=1` stampa le funzioni WS dichiarate dal sito, filtrate per
+ * prefisso. Con `WEBEEP_DIAGNOSE_COURSE` chiama anche, in sola lettura, le funzioni WS di forum,
+ * consegne, voti, completamento, quiz, libri, calendario e messaggi, stampando per ognuna esito
+ * e struttura (chiavi di primo e secondo livello, tipi, conteggi). Il post di un forum si legge
+ * solo con `WEBEEP_DIAGNOSE_FORUM_POSTS=1`: Moodle lo segna come letto sul sito.
  */
 import { z } from 'zod';
 import {
@@ -27,6 +33,7 @@ import {
   type FetchLike,
   type ModuleContent,
   type MoodleClient,
+  type MoodleParams,
 } from '@webeep/moodle-api';
 import { getActiveToken, getAuthState } from './auth.js';
 
@@ -34,6 +41,8 @@ const WEBEEP_ORIGIN = new URL(WEBEEP_SITE_URL).origin;
 const DIAGNOSE_ENV_VAR = 'WEBEEP_DIAGNOSE';
 const DIAGNOSE_ENABLED_VALUE = '1';
 const COURSE_FILTER_ENV_VAR = 'WEBEEP_DIAGNOSE_COURSE';
+const FUNCTIONS_ENV_VAR = 'WEBEEP_DIAGNOSE_FUNCTIONS';
+const FORUM_POSTS_ENV_VAR = 'WEBEEP_DIAGNOSE_FORUM_POSTS';
 const LOG_PREFIX = '[diagnosi]';
 const ISSUE_INDENT = '  ';
 const LIST_INDENT = '  ';
@@ -56,6 +65,36 @@ const REQUIRED_WS_FUNCTIONS: readonly string[] = [
   'core_course_get_module',
   'core_course_get_course_module',
 ];
+
+/** Aree di funzionalità da esaminare nell'elenco dichiarato dal sito (`WEBEEP_DIAGNOSE_FUNCTIONS`). */
+const FUNCTION_PREFIXES: readonly string[] = [
+  'mod_forum_',
+  'mod_assign_',
+  'gradereport_',
+  'core_grades_',
+  'core_completion_',
+  'mod_quiz_',
+  'mod_book_',
+  'mod_folder_',
+  'mod_resource_',
+  'mod_url_',
+  'mod_label_',
+  'core_calendar_',
+  'core_message_',
+  'message_',
+  'core_course_',
+  'mod_lti_',
+  'mod_choice_',
+  'mod_feedback_',
+  'core_block_',
+  'tool_mobile_',
+  'core_user_',
+  'mod_zoom',
+  'mod_kalvidres',
+];
+
+/** Mese di `Date` è da 0 a 11, quello di Moodle da 1 a 12. */
+const MONTH_OFFSET = 1;
 
 const PAGE_LIKE_MODNAMES = ['page', 'book'] as const;
 type PageLikeModname = (typeof PAGE_LIKE_MODNAMES)[number];
@@ -81,9 +120,11 @@ const issuesSchema = z.array(
   }),
 );
 
+/** `skipped`: chiamata non fatta perché manca un dato dal passo precedente; non conta come errore. */
 type Outcome<TResult> = {
   readonly lines: readonly string[];
   readonly result: TResult | undefined;
+  readonly skipped: boolean;
 };
 
 type CapturingFetch = {
@@ -96,7 +137,9 @@ type CourseContentsProbe = {
   readonly outcome: Outcome<readonly CourseSection[]>;
 };
 
-export const isDiagnoseMode = (): boolean => process.env[DIAGNOSE_ENV_VAR] === DIAGNOSE_ENABLED_VALUE;
+export const isDiagnoseMode = (): boolean => isEnvFlagOn(DIAGNOSE_ENV_VAR);
+
+const isEnvFlagOn = (name: string): boolean => process.env[name] === DIAGNOSE_ENABLED_VALUE;
 
 /** Rete di sicurezza: nessuna riga di log esce con un parametro token, qualunque sia la sua origine. */
 const redactTokens = (text: string): string => text.replace(TOKEN_PARAM_PATTERN, REDACTED_TOKEN);
@@ -186,12 +229,18 @@ const probe = async <TResult>(
   const client = createMoodleClient({ siteUrl: WEBEEP_SITE_URL, token: getActiveToken(), fetch: capture.fetchFn });
   try {
     const result = await call(client);
-    return { lines: [`${label}: ok, ${summarize(result)}`], result };
+    return { lines: [`${label}: ok, ${summarize(result)}`], result, skipped: false };
   } catch (error) {
     const [header = '', ...details] = describeError(error, capture.body());
-    return { lines: [`${label}: ${header}`, ...details], result: undefined };
+    return { lines: [`${label}: ${header}`, ...details], result: undefined, skipped: false };
   }
 };
+
+const skipped = (label: string, reason: string): Outcome<unknown> => ({
+  lines: [`${label}: saltata, ${reason}`],
+  result: undefined,
+  skipped: true,
+});
 
 const summarizeCourses = (courses: readonly Course[]): string => `${courses.length} corsi`;
 
@@ -202,10 +251,74 @@ const summarizeSections = (sections: readonly CourseSection[]): string => {
   return `${sections.length} sezioni, ${modules.length} moduli, ${contents.length} contenuti (${files.length} con file)`;
 };
 
+/** Stampa l'esito e ritorna `true` se la chiamata è riuscita o non è stata fatta di proposito. */
 const printOutcome = (outcome: Outcome<unknown>): boolean => {
   outcome.lines.forEach(log);
-  return outcome.result !== undefined;
+  return outcome.skipped || outcome.result !== undefined;
 };
+
+const numberOrUndefined = (value: unknown): number | undefined => (typeof value === 'number' ? value : undefined);
+
+/** Id numerico al percorso indicato (es. `['courses', 0, 'assignments', 0, 'id']`), altrimenti `undefined`. */
+const idAt = (root: unknown, path: readonly PathKey[]): number | undefined => numberOrUndefined(valueAt(root, path));
+
+/** Tipo del valore; per un array anche il numero di elementi. Mai il contenuto. */
+const describeType = (value: unknown): string => (isUnknownArray(value) ? `array(${value.length})` : typeName(value));
+
+/** Chiavi con il tipo del figlio; per un array, quelle del primo elemento. */
+const describeChildren = (value: unknown): readonly string[] => {
+  const node = isUnknownArray(value) ? value[0] : value;
+  if (!isRecord(node)) return [];
+  return Object.entries(node).map(([key, child]) => `${key}: ${describeType(child)}`);
+};
+
+/** Un campo di primo livello e, se ha figli strutturati, i suoi campi di secondo livello. */
+const describeField = (name: string, value: unknown): readonly string[] => {
+  const children = describeChildren(value);
+  const head = `${LIST_INDENT}${name}: ${describeType(value)}`;
+  if (children.length === 0) return [head];
+  const scope = isUnknownArray(value) ? ' del primo elemento' : '';
+  return [head, `${ITEM_INDENT}chiavi${scope}: ${children.join(', ')}`];
+};
+
+/** Struttura a due livelli di una risposta: solo chiavi, tipi e conteggi degli array. */
+const describeStructure = (value: unknown): readonly string[] => {
+  if (isUnknownArray(value)) return describeField('radice', value);
+  if (!isRecord(value)) return [`${LIST_INDENT}radice: ${typeName(value)}`];
+  return Object.entries(value).flatMap(([key, child]) => describeField(key, child));
+};
+
+const summarizeRoot = (value: unknown): string => {
+  if (isUnknownArray(value)) return `${value.length} elementi al primo livello`;
+  if (isRecord(value)) return `oggetto con ${Object.keys(value).length} chiavi`;
+  return `valore di tipo ${typeName(value)}`;
+};
+
+/** Come `probe`, ma con la struttura della risposta sotto l'esito. Il corpo non esce mai. */
+const probeStructure = async (label: string, wsfunction: string, params: MoodleParams): Promise<Outcome<unknown>> => {
+  const outcome = await probe(
+    label,
+    (client) => client.call(wsfunction, params, z.unknown()),
+    summarizeRoot,
+  );
+  if (outcome.result === undefined) return outcome;
+  return { ...outcome, lines: [...outcome.lines, ...describeStructure(outcome.result)] };
+};
+
+/** Chiama la funzione solo se il passo precedente ha dato un id; altrimenti la segna come saltata. */
+const probeWhenKnown = async (
+  id: number | undefined,
+  label: string,
+  wsfunction: string,
+  paramsFor: (id: number) => MoodleParams,
+  missingReason: string,
+): Promise<Outcome<unknown>> => {
+  if (id === undefined) return skipped(label, missingReason);
+  return probeStructure(label, wsfunction, paramsFor(id));
+};
+
+/** Parametri per le funzioni per utente: senza id utente Moodle usa quello della sessione. */
+const forUser = (userId: number | undefined): MoodleParams => (userId === undefined ? {} : { userid: userId });
 
 /**
  * Query e frammenti (dove Moodle mette il token dei file) non escono mai. Per i link interni
@@ -258,19 +371,122 @@ const siteFunctionNames = (siteInfo: unknown): readonly string[] => {
     .filter((name): name is string => typeof name === 'string');
 };
 
+/** Elenco delle funzioni dichiarate dal sito, raggruppato per area: solo nomi, mai valori. */
+const printFunctionsByPrefix = (siteInfo: unknown): void => {
+  const names = siteFunctionNames(siteInfo);
+  log(`${LIST_INDENT}funzioni dichiarate in totale: ${names.length}`);
+  FUNCTION_PREFIXES.forEach((prefix) => {
+    const matching = names.filter((name) => name.startsWith(prefix)).sort();
+    log(`${ITEM_INDENT}${prefix}* (${matching.length}): ${matching.join(', ') || 'nessuna'}`);
+  });
+};
+
 /** Dice quali funzioni WS il sito dichiara: la chiamata grezza non passa per gli schemi dell'app. */
-const inspectSiteFunctions = async (): Promise<boolean> => {
-  const outcome = await probe(
-    `${SITE_INFO_WS} (funzioni)`,
-    (client) => client.call(SITE_INFO_WS, {}, z.unknown()),
-    (siteInfo) => `${siteFunctionNames(siteInfo).length} funzioni dichiarate`,
-  );
-  const available = siteFunctionNames(outcome.result);
-  const ok = printOutcome(outcome);
+const inspectSiteFunctions = (siteInfo: unknown, functionsRequested: boolean): void => {
+  const available = siteFunctionNames(siteInfo);
   REQUIRED_WS_FUNCTIONS.forEach((name) =>
     log(`${LIST_INDENT}${name}: ${available.includes(name) ? 'disponibile' : 'non dichiarata'}`),
   );
-  return ok;
+  if (functionsRequested) printFunctionsByPrefix(siteInfo);
+};
+
+/**
+ * Sola lettura: ogni chiamata sta dopo quella da cui prende l'id. Il post di un forum
+ * (`mod_forum_get_discussion_posts`) non parte senza `WEBEEP_DIAGNOSE_FORUM_POSTS=1`,
+ * perché Moodle lo registra come letto.
+ */
+const inspectCourseWebservices = async (courseId: number, userId: number | undefined): Promise<readonly boolean[]> => {
+  const courseTag = `(corso ${courseId})`;
+  const forums = await probeStructure(`mod_forum_get_forums_by_courses ${courseTag}`, 'mod_forum_get_forums_by_courses', {
+    courseids: [courseId],
+  });
+  const forumId = idAt(forums.result, [0, 'id']);
+  const discussions = await probeWhenKnown(
+    forumId,
+    `mod_forum_get_forum_discussions ${courseTag}`,
+    'mod_forum_get_forum_discussions',
+    (id) => ({ forumid: id }),
+    'nessun forum nel corso',
+  );
+  const discussionId = idAt(discussions.result, ['discussions', 0, 'discussion']);
+  const postsLabel = `mod_forum_get_discussion_posts ${courseTag}`;
+  const posts = isEnvFlagOn(FORUM_POSTS_ENV_VAR)
+    ? await probeWhenKnown(
+        discussionId,
+        postsLabel,
+        'mod_forum_get_discussion_posts',
+        (id) => ({ discussionid: id }),
+        'nessuna discussione nel primo forum',
+      )
+    : skipped(postsLabel, `non chiamata di default, serve ${FORUM_POSTS_ENV_VAR}=1 (Moodle la segna come letta)`);
+
+  const assignments = await probeStructure(`mod_assign_get_assignments ${courseTag}`, 'mod_assign_get_assignments', {
+    courseids: [courseId],
+  });
+  const assignId = idAt(assignments.result, ['courses', 0, 'assignments', 0, 'id']);
+  const submission = await probeWhenKnown(
+    assignId,
+    `mod_assign_get_submission_status ${courseTag}`,
+    'mod_assign_get_submission_status',
+    (id) => ({ assignid: id, ...forUser(userId) }),
+    'nessun compito nel corso',
+  );
+
+  const gradeItems = await probeStructure(`gradereport_user_get_grade_items ${courseTag}`, 'gradereport_user_get_grade_items', {
+    courseid: courseId,
+    ...forUser(userId),
+  });
+  const completion = await probeStructure(
+    `core_completion_get_activities_completion_status ${courseTag}`,
+    'core_completion_get_activities_completion_status',
+    { courseid: courseId, ...forUser(userId) },
+  );
+
+  const quizzes = await probeStructure(`mod_quiz_get_quizzes_by_courses ${courseTag}`, 'mod_quiz_get_quizzes_by_courses', {
+    courseids: [courseId],
+  });
+  const quizId = idAt(quizzes.result, ['quizzes', 0, 'id']);
+  const attempts = await probeWhenKnown(
+    quizId,
+    `mod_quiz_get_user_attempts ${courseTag}`,
+    'mod_quiz_get_user_attempts',
+    (id) => ({ quizid: id, status: 'all', ...forUser(userId) }),
+    'nessun quiz nel corso',
+  );
+
+  const books = await probeStructure(`mod_book_get_books_by_courses ${courseTag}`, 'mod_book_get_books_by_courses', {
+    courseids: [courseId],
+  });
+
+  const today = new Date();
+  const calendar = await probeStructure(
+    `core_calendar_get_calendar_monthly_view ${courseTag}`,
+    'core_calendar_get_calendar_monthly_view',
+    { year: today.getFullYear(), month: today.getMonth() + MONTH_OFFSET, courseid: courseId },
+  );
+
+  const conversations = await probeWhenKnown(
+    userId,
+    `core_message_get_conversations ${courseTag}`,
+    'core_message_get_conversations',
+    (id) => ({ userid: id }),
+    'id utente assente dalla sessione',
+  );
+
+  return [
+    forums,
+    discussions,
+    posts,
+    assignments,
+    submission,
+    gradeItems,
+    completion,
+    quizzes,
+    attempts,
+    books,
+    calendar,
+    conversations,
+  ].map(printOutcome);
 };
 
 const probePageLike = (course: Course, modname: PageLikeModname): Promise<Outcome<unknown>> => {
@@ -307,6 +523,7 @@ const matchesCourse = (course: Course, needle: string): boolean =>
 const inspectMatchingCourses = async (
   probes: readonly CourseContentsProbe[],
   filter: string,
+  userId: number | undefined,
 ): Promise<readonly boolean[]> => {
   const needle = filter.toLocaleLowerCase();
   const matches = probes.filter(({ course }) => matchesCourse(course, needle));
@@ -315,7 +532,12 @@ const inspectMatchingCourses = async (
     log(`nessun corso corrisponde al filtro "${filter}". Corsi disponibili: ${names}`);
     return [];
   }
-  const inspected = await Promise.all(matches.map(inspectCourseProbe));
+  const inspected = await Promise.all(
+    matches.map(async (match) => [
+      ...(await inspectCourseProbe(match)),
+      ...(await inspectCourseWebservices(match.course.id, userId)),
+    ]),
+  );
   return inspected.flat();
 };
 
@@ -326,9 +548,22 @@ const readCourseFilter = (): string | undefined => {
 };
 
 /** Dettaglio opt-in: funzioni dichiarate dal sito, poi struttura dei corsi che corrispondono. */
-const inspectDetail = async (probes: readonly CourseContentsProbe[], filter: string): Promise<readonly boolean[]> => {
-  const siteOk = await inspectSiteFunctions();
-  const courseResults = await inspectMatchingCourses(probes, filter);
+const inspectDetail = async (
+  probes: readonly CourseContentsProbe[],
+  filter: string | undefined,
+  functionsRequested: boolean,
+): Promise<readonly boolean[]> => {
+  const site = await probe(
+    `${SITE_INFO_WS} (funzioni)`,
+    (client) => client.call(SITE_INFO_WS, {}, z.unknown()),
+    (siteInfo) => `${siteFunctionNames(siteInfo).length} funzioni dichiarate`,
+  );
+  const siteOk = printOutcome(site);
+  if (site.result === undefined) return [siteOk];
+  inspectSiteFunctions(site.result, functionsRequested);
+  if (filter === undefined) return [siteOk];
+  const userId = numberOrUndefined(childOf(site.result, 'userid'));
+  const courseResults = await inspectMatchingCourses(probes, filter, userId);
   return [siteOk, ...courseResults];
 };
 
@@ -361,7 +596,9 @@ export const runDiagnosis = async (): Promise<boolean> => {
   const outcomes: readonly Outcome<unknown>[] = [inProgress, all, ...contentProbes.map(({ outcome }) => outcome)];
   const results = outcomes.map(printOutcome);
   const filter = readCourseFilter();
-  const detailResults = filter === undefined ? [] : await inspectDetail(contentProbes, filter);
+  const functionsRequested = isEnvFlagOn(FUNCTIONS_ENV_VAR);
+  const detailResults =
+    filter === undefined && !functionsRequested ? [] : await inspectDetail(contentProbes, filter, functionsRequested);
   const allResults = [...results, ...detailResults];
   const failed = allResults.filter((ok) => !ok).length;
   log(failed === 0 ? 'esito: tutte le chiamate ok' : `esito: ${failed} chiamate fallite su ${allResults.length}`);
