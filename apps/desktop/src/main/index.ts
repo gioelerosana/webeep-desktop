@@ -1,7 +1,7 @@
 /*
  * Entry del main process: ciclo di vita dell'app e finestra principale.
  */
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, type BrowserWindowConstructorOptions } from 'electron';
 import { join } from 'node:path';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
@@ -13,6 +13,12 @@ const WINDOW_HEIGHT = 820;
 const MIN_WINDOW_WIDTH = 900;
 const MIN_WINDOW_HEIGHT = 600;
 const EXTERNAL_PROTOCOLS: readonly string[] = ['http:', 'https:'];
+/**
+ * La barra del titolo è disegnata dall'app (canali `window:*`). Su macOS si tiene
+ * il titolo nativo nascosto, così restano i semafori; altrove la cornice va tolta.
+ */
+const WINDOW_CHROME: BrowserWindowConstructorOptions =
+  process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : { frame: false };
 
 registerAssetScheme();
 
@@ -25,6 +31,7 @@ const createMainWindow = (): BrowserWindow => {
     title: 'WeBeep',
     show: false,
     autoHideMenuBar: true,
+    ...WINDOW_CHROME,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -34,6 +41,8 @@ const createMainWindow = (): BrowserWindow => {
   });
 
   window.once('ready-to-show', () => window.show());
+  window.on('maximize', () => window.webContents.send('window:maximized-changed', true));
+  window.on('unmaximize', () => window.webContents.send('window:maximized-changed', false));
 
   // Nessuna nuova finestra dal renderer: i link http(s) vanno nel browser di sistema.
   window.webContents.setWindowOpenHandler(({ url }) => {

@@ -1,6 +1,5 @@
 import { cn } from '@webeep/ui-kit';
 import { useState, type ReactNode } from 'react';
-import { toAssetUrl } from '../../../shared/ipc';
 
 /** Quante parole del nome entrano nelle iniziali. */
 const INITIALS_MAX_WORDS = 2;
@@ -26,7 +25,7 @@ export const UserAvatar = ({ fullname, pictureUrl }: UserAvatarProps): ReactNode
   if (pictureUrl && !failed) {
     return (
       <img
-        src={toAssetUrl(pictureUrl)}
+        src={window.webeep.assetUrl(pictureUrl)}
         alt=""
         onError={() => setFailed(true)}
         className={cn(AVATAR_CLASSES, 'object-cover')}

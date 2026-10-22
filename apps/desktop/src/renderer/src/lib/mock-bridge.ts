@@ -99,10 +99,14 @@ let auth: AuthState =
     : { status: 'signed-in', user };
 let settings: Settings = { downloadDir: '/home/giulia/Scaricati/WeBeep', theme: 'system' };
 
-const listeners = new Set<(state: AuthState) => void>();
+// Un insieme di listener per evento: un listener di `window:maximized-changed` non deve ricevere `auth:changed`.
+const listeners: { readonly [TEvent in IpcEventName]: Set<(payload: IpcEvents[TEvent]) => void> } = {
+  'auth:changed': new Set(),
+  'window:maximized-changed': new Set(),
+};
 const setAuth = (next: AuthState): AuthState => {
   auth = next;
-  listeners.forEach((listener) => listener(next));
+  listeners['auth:changed'].forEach((listener) => listener(next));
   return next;
 };
 
@@ -135,11 +139,16 @@ const handlers: MockHandlers = {
     return settings;
   },
   'settings:choose-download-dir': () => '/home/giulia/Documenti/Polimi',
+  'window:minimize': () => null,
+  'window:toggle-maximize': () => null,
+  'window:close': () => null,
+  'window:is-maximized': () => false,
 };
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 const mockBridge: WebeepBridge = {
+  kind: 'mock',
   invoke: async (channel, ...args) => {
     await delay(MOCK_LATENCY_MS);
     // Il mapped type garantisce che ogni handler accetti gli argomenti del proprio canale;
@@ -148,12 +157,15 @@ const mockBridge: WebeepBridge = {
     const result: IpcResult<IpcContract[typeof channel]['result']> = { ok: true, data: handler(...args) };
     return result;
   },
-  on: <TEvent extends IpcEventName>(_event: TEvent, listener: (payload: IpcEvents[TEvent]) => void) => {
-    listeners.add(listener);
+  on: <TEvent extends IpcEventName>(event: TEvent, listener: (payload: IpcEvents[TEvent]) => void) => {
+    const eventListeners = listeners[event];
+    eventListeners.add(listener);
     return () => {
-      listeners.delete(listener);
+      eventListeners.delete(listener);
     };
   },
+  // Nel bridge finto le immagini sono URL pubblici di fixture: nessun token da nascondere.
+  assetUrl: (fileUrl) => fileUrl,
   platform: 'linux',
 };
 

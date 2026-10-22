@@ -3,9 +3,10 @@
  * Niente accesso diretto a `ipcRenderer` dal renderer.
  */
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { IpcEventName, IpcEvents, WebeepBridge } from '../shared/ipc.js';
+import { toAssetUrl, type IpcEventName, type IpcEvents, type WebeepBridge } from '../shared/ipc.js';
 
 const bridge: WebeepBridge = {
+  kind: 'electron',
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
   on: <TEvent extends IpcEventName>(event: TEvent, listener: (payload: IpcEvents[TEvent]) => void) => {
     const wrapped = (_event: IpcRendererEvent, payload: IpcEvents[TEvent]): void => listener(payload);
@@ -14,6 +15,7 @@ const bridge: WebeepBridge = {
       ipcRenderer.off(event, wrapped);
     };
   },
+  assetUrl: toAssetUrl,
   platform: process.platform,
 };
 
