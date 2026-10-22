@@ -72,7 +72,14 @@ export const CourseView = ({ courseId }: CourseViewProps): ReactNode => {
         <EmptyState
           icon={<CircleAlert />}
           title="Impossibile caricare il corso"
-          description="Controlla la connessione e riprova."
+          description={
+            <>
+              <span>Controlla la connessione e riprova.</span>
+              {contents.error ? (
+                <span className="mt-1 block break-words text-2xs text-muted-foreground">{contents.error.message}</span>
+              ) : null}
+            </>
+          }
           action={
             <Button variant="outline" onClick={refresh}>
               Riprova

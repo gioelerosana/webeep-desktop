@@ -54,10 +54,21 @@ export const coursesByTimelineSchema = z.object({
 export const COURSE_TIMELINE_CLASSIFICATIONS = ['all', 'inprogress', 'future', 'past', 'favourites', 'hidden'] as const;
 export type CourseTimelineClassification = (typeof COURSE_TIMELINE_CLASSIFICATIONS)[number];
 
+/**
+ * Moodle manda `filepath: null` sui file dei moduli `resource` (osservato su
+ * WeBeep): la chiave c'è ma non ha valore. Lo normalizziamo a `undefined`, che è
+ * il significato che il resto del codice si aspetta da un campo opzionale.
+ */
+const nullishToUndefined = <TValue>(value: TValue | null | undefined): TValue | undefined => value ?? undefined;
+
 export const moduleContentSchema = z.object({
   type: z.string(),
   filename: z.string(),
-  filepath: z.string().optional(),
+  filepath: z
+    .string()
+    .nullish()
+    .transform(nullishToUndefined)
+    .optional(),
   filesize: z.number().optional().default(0),
   fileurl: z.string().optional(),
   timemodified: unixSeconds.optional(),

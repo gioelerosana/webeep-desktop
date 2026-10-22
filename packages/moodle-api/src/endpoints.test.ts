@@ -10,6 +10,7 @@ import {
 } from './endpoints.js';
 import actionEventsFixture from './__fixtures__/action-events.json';
 import courseContentsFixture from './__fixtures__/course-contents.json';
+import courseContentsNullFilepathFixture from './__fixtures__/course-contents-null-filepath.json';
 import coursesFixture from './__fixtures__/courses-by-timeline.json';
 import notificationsFixture from './__fixtures__/popup-notifications.json';
 
@@ -125,6 +126,18 @@ describe('getCourseContents', () => {
     const [file] = section?.modules[0]?.contents ?? [];
 
     expect(file).toMatchObject({ filename: 'dispensa.pdf', filesize: FILE_SIZE_BYTES, mimetype: 'application/pdf' });
+  });
+
+  // Regressione: WeBeep manda `filepath: null` sui file; prima lo schema rifiutava l'intero corso.
+  it('accetta filepath null (file di risorse e cartelle) e lo rende undefined', async () => {
+    const { client } = clientWith(courseContentsNullFilepathFixture);
+
+    const sections = await getCourseContents(client, COURSE_ID);
+    const [resource, folder] = sections[0]?.modules ?? [];
+
+    expect(sections).toHaveLength(1);
+    expect(resource?.contents[0]).toMatchObject({ filename: 'appunti-esempio.pdf', filepath: undefined });
+    expect(folder?.contents[0]).toMatchObject({ filename: 'slide-esempio.pptx', filepath: undefined });
   });
 });
 
