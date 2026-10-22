@@ -3,7 +3,9 @@
  */
 import { Spinner } from '@webeep/ui-kit';
 import type { ReactNode } from 'react';
+import type { AuthState } from '../../shared/ipc';
 import { AppShell } from './layout/AppShell';
+import { TitleBar } from './layout/TitleBar';
 import { NavigationProvider, useNavigation, type Route } from './lib/navigation';
 import { useAuthState, useSettings } from './lib/queries';
 import { useApplyTheme } from './lib/theme';
@@ -18,18 +20,11 @@ const assertNever = (value: never): never => {
 };
 
 const renderRoute = (route: Route): ReactNode => {
-  switch (route.name) {
-    case 'home':
-      return <HomeView />;
-    case 'course':
-      return <CourseView key={route.courseId} courseId={route.courseId} />;
-    case 'notifications':
-      return <NotificationsView />;
-    case 'settings':
-      return <SettingsView />;
-    default:
-      return assertNever(route);
-  }
+  if (route.name === 'home') return <HomeView />;
+  if (route.name === 'course') return <CourseView key={route.courseId} courseId={route.courseId} />;
+  if (route.name === 'notifications') return <NotificationsView />;
+  if (route.name === 'settings') return <SettingsView />;
+  return assertNever(route);
 };
 
 const AppContent = (): ReactNode => {
@@ -43,16 +38,26 @@ const FullScreenSpinner = (): ReactNode => (
   </div>
 );
 
+const renderScreen = (auth: AuthState | undefined): ReactNode => {
+  if (!auth) return <FullScreenSpinner />;
+  if (auth.status === 'signed-out') return <LoginView />;
+  return (
+    <NavigationProvider>
+      <AppContent />
+    </NavigationProvider>
+  );
+};
+
+/* La barra sta sopra a tutto (anche al login e allo spinner); sotto, il resto occupa l'altezza rimasta. */
 export const App = (): ReactNode => {
   const settings = useSettings();
   const auth = useAuthState();
   useApplyTheme(settings.data?.theme ?? 'system');
 
-  if (!auth.data) return <FullScreenSpinner />;
-  if (auth.data.status === 'signed-out') return <LoginView />;
   return (
-    <NavigationProvider>
-      <AppContent />
-    </NavigationProvider>
+    <div className="flex h-full flex-col">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1 flex-col">{renderScreen(auth.data)}</div>
+    </div>
   );
 };
