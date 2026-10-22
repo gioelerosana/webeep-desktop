@@ -48,6 +48,35 @@ export type DownloadResult = {
   readonly downloaded: boolean;
 };
 
+/** Identifica una pagina (`mod_page`) per id del modulo nel corso. */
+export type CoursePageRequest = {
+  readonly courseId: number;
+  readonly moduleId: number;
+};
+
+/** File allegato a una pagina. `fileurl` è già senza token: si apre con `files:open` / `files:download`. */
+export type CoursePageFile = {
+  readonly filename: string;
+  readonly filepath: string;
+  readonly filesize: number;
+  readonly fileurl: string;
+  readonly mimetype: string | undefined;
+  readonly timemodified: number | undefined;
+};
+
+/**
+ * Pagina del corso. `introHtml` e `contentHtml` sono HTML come stringa, senza token:
+ * il renderer li mostra come testo o con una whitelist, mai iniettandoli.
+ */
+export type CoursePage = {
+  readonly moduleId: number;
+  readonly name: string;
+  readonly introHtml: string;
+  readonly contentHtml: string;
+  readonly files: readonly CoursePageFile[];
+  readonly timemodified: number;
+};
+
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
   /** Apre la finestra di login Polimi; si risolve a login finito o annullato. */
@@ -59,6 +88,8 @@ export type IpcContract = {
   'moodle:upcoming-events': { readonly args: []; readonly result: readonly CalendarEvent[] };
   'moodle:notifications': { readonly args: []; readonly result: NotificationsPage };
   'moodle:mark-notification-read': { readonly args: [notificationId: number]; readonly result: null };
+  /** Pagina `mod_page` di un corso. Errore `invalid-input` se il modulo non è una pagina di quel corso. */
+  'course:page': { readonly args: [request: CoursePageRequest]; readonly result: CoursePage };
 
   /** Scarica nella cache dell'app e apre con l'applicazione predefinita. */
   'files:open': { readonly args: [file: FileRequest]; readonly result: null };

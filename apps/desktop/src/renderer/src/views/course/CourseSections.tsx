@@ -10,10 +10,12 @@ export type CourseSectionsProps = {
   /** Filtro scritto dall'utente, così lo stato vuoto può nominarlo. */
   readonly query: string;
   readonly fileActions: CourseFileActions;
+  /** Apre una pagina del corso nell'app. */
+  readonly onOpenPage: (moduleId: number) => void;
 };
 
 /** Elenco delle sezioni, o lo stato vuoto: corso senza materiali oppure filtro senza risultati. */
-export const CourseSections = ({ views, query, fileActions }: CourseSectionsProps): ReactNode => {
+export const CourseSections = ({ views, query, fileActions, onOpenPage }: CourseSectionsProps): ReactNode => {
   if (views.length === 0) {
     const trimmed = query.trim();
     return trimmed === '' ? (
@@ -26,7 +28,7 @@ export const CourseSections = ({ views, query, fileActions }: CourseSectionsProp
   return (
     <div className="flex flex-col gap-4">
       {views.map((view) => (
-        <CourseSectionBlock key={view.id} view={view} fileActions={fileActions} />
+        <CourseSectionBlock key={view.id} view={view} fileActions={fileActions} onOpenPage={onOpenPage} />
       ))}
     </div>
   );

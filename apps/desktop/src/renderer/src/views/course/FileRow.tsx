@@ -1,7 +1,7 @@
 import { Button, cn } from '@webeep/ui-kit';
 import { Download, Eye, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { CourseFile } from './courseContent';
+import type { DownloadableFile } from './courseContent';
 import { FileStatus } from './FileStatus';
 import type { CourseFileActions } from './useCourseFileActions';
 
@@ -12,7 +12,7 @@ export type FileRowProps = {
   readonly icon: LucideIcon;
   readonly name: string;
   readonly meta: string;
-  readonly file: CourseFile;
+  readonly file: DownloadableFile;
   readonly sectionName: string;
   readonly indent?: boolean;
   readonly fileActions: CourseFileActions;

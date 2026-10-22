@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { openExternal, revealFile, useDownloadFile, useOpenFile } from '../../lib/queries';
-import { toFileRequest, type CourseFile } from './courseContent';
+import { toFileRequest, type DownloadableFile } from './courseContent';
 
 /** Quanto resta visibile l'esito "Scaricato" o "Già aggiornato". */
 const SETTLED_STATE_MS = 4_000;
@@ -19,8 +19,8 @@ export type FileActionState =
 export type CourseFileActions = {
   /** Stato dell'ultima azione sul file (o link) identificato dal suo URL. */
   readonly stateOf: (key: string) => FileActionState | undefined;
-  readonly open: (file: CourseFile, sectionName: string) => void;
-  readonly download: (file: CourseFile, sectionName: string) => void;
+  readonly open: (file: DownloadableFile, sectionName: string) => void;
+  readonly download: (file: DownloadableFile, sectionName: string) => void;
   readonly reveal: (key: string, path: string) => void;
   readonly openLink: (url: string) => void;
 };
@@ -65,7 +65,7 @@ export const useCourseFileActions = (courseName: string): CourseFileActions => {
     timers.current.set(key, timer);
   };
 
-  const openItem = async (file: CourseFile, sectionName: string): Promise<void> => {
+  const openItem = async (file: DownloadableFile, sectionName: string): Promise<void> => {
     cancelTimer(file.fileurl);
     put(file.fileurl, { status: 'running', action: 'open' });
     try {
@@ -76,7 +76,7 @@ export const useCourseFileActions = (courseName: string): CourseFileActions => {
     }
   };
 
-  const downloadItem = async (file: CourseFile, sectionName: string): Promise<void> => {
+  const downloadItem = async (file: DownloadableFile, sectionName: string): Promise<void> => {
     cancelTimer(file.fileurl);
     put(file.fileurl, { status: 'running', action: 'download' });
     try {

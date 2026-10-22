@@ -4,6 +4,7 @@ import { type CourseRow, fileMeta } from './courseContent';
 import { FileRow } from './FileRow';
 import { FolderRow } from './FolderRow';
 import { LinkModuleRow } from './LinkModuleRow';
+import { PageModuleRow } from './PageModuleRow';
 import type { CourseFileActions } from './useCourseFileActions';
 
 const TEXT_ROW_CLASS = 'py-2.5 pl-4 pr-4 text-sm text-muted-foreground';
@@ -12,11 +13,13 @@ export type ModuleRowProps = {
   readonly row: CourseRow;
   readonly sectionName: string;
   readonly fileActions: CourseFileActions;
+  readonly onOpenPage: (moduleId: number) => void;
 };
 
 /** Una riga di modulo: il componente dipende dal tipo già classificato in `courseContent.ts`. */
-export const ModuleRow = ({ row, sectionName, fileActions }: ModuleRowProps): ReactNode => {
+export const ModuleRow = ({ row, sectionName, fileActions, onOpenPage }: ModuleRowProps): ReactNode => {
   if (row.kind === 'text') return <p className={TEXT_ROW_CLASS}>{row.text}</p>;
+  if (row.kind === 'page') return <PageModuleRow module={row.module} fileActions={fileActions} onOpenPage={onOpenPage} />;
   if (row.kind === 'link') return <LinkModuleRow module={row.module} url={row.url} fileActions={fileActions} />;
   if (row.kind === 'file') {
     return (

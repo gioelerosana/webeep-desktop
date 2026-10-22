@@ -13,7 +13,8 @@ const SINGLE_FILE_COUNT = 1;
 
 export const LABEL_MODNAME = 'label';
 const URL_MODNAME = 'url';
-const RESOURCE_MODNAME = 'resource';
+export const PAGE_MODNAME = 'page';
+export const RESOURCE_MODNAME = 'resource';
 const FOLDER_MODNAME = 'folder';
 /** Moduli che possono contenere file: gli altri, anche con allegati, si aprono sul sito. */
 const FILE_MODNAMES: readonly string[] = [RESOURCE_MODNAME, FOLDER_MODNAME];
@@ -21,9 +22,24 @@ const FILE_MODNAMES: readonly string[] = [RESOURCE_MODNAME, FOLDER_MODNAME];
 /** Contenuto scaricabile: Moodle lo manda senza `fileurl` quando non è un file vero. */
 export type CourseFile = ModuleContent & { readonly fileurl: string };
 
+/** Ciò che serve per aprire o scaricare un file, sia di un modulo del corso sia di una pagina. */
+export type DownloadableFile = {
+  readonly fileurl: string;
+  readonly filename: string;
+  readonly timemodified?: number;
+};
+
+/** Dati per la riga secondaria di un file: estensione, dimensione, data. */
+export type FileMetaSource = {
+  readonly filename: string;
+  readonly filesize: number;
+  readonly timemodified?: number;
+};
+
 /** Una riga di modulo già classificata: la vista sceglie il componente dal `kind`. */
 export type CourseRow =
   | { readonly kind: 'text'; readonly module: CourseModule; readonly text: string }
+  | { readonly kind: 'page'; readonly module: CourseModule }
   | { readonly kind: 'link'; readonly module: CourseModule; readonly url: string | undefined }
   | { readonly kind: 'file'; readonly module: CourseModule; readonly file: CourseFile }
   | { readonly kind: 'folder'; readonly module: CourseModule; readonly files: readonly CourseFile[] };
@@ -57,6 +73,9 @@ const toModuleRow = (module: CourseModule, query: string): CourseRow | undefined
     const text = htmlToText(module.description ?? '');
     return text !== '' && matches(query, text) ? { kind: 'text', module, text } : undefined;
   }
+
+  // La pagina si apre nell'app: il suo contenuto non sta nell'elenco del corso, quindi basta il nome.
+  if (module.modname === PAGE_MODNAME) return matches(query, module.name) ? { kind: 'page', module } : undefined;
 
   if (!FILE_MODNAMES.includes(module.modname) || files.length === 0) {
     return matches(query, module.name) ? { kind: 'link', module, url: toLinkUrl(module, files) } : undefined;
@@ -111,7 +130,7 @@ export const fileExtension = (filename: string): string | undefined => {
 };
 
 /** Riga secondaria di un file: "PDF · 1,2 MB · 4 nov, 14:30". */
-export const fileMeta = (file: CourseFile): string =>
+export const fileMeta = (file: FileMetaSource): string =>
   [
     fileExtension(file.filename),
     formatFileSize(file.filesize),
@@ -120,7 +139,7 @@ export const fileMeta = (file: CourseFile): string =>
     .filter(isDefined)
     .join(META_SEPARATOR);
 
-export const toFileRequest = (file: CourseFile, courseName: string, sectionName: string): FileRequest => ({
+export const toFileRequest = (file: DownloadableFile, courseName: string, sectionName: string): FileRequest => ({
   fileUrl: file.fileurl,
   fileName: file.filename,
   courseName,
@@ -134,3 +153,13 @@ export const courseSubtitle = (course: Course): string | undefined => {
   const parts = [teacher, course.coursecategory].filter((part): part is string => part !== undefined && part !== '');
   return parts.length > 0 ? parts.join(META_SEPARATOR) : undefined;
 };
+
+/** Posizione di un modulo nel corso: il modulo e il nome della sezione che lo contiene. */
+export type ModuleLocation = {
+  readonly module: CourseModule;
+  readonly sectionName: string;
+};
+
+/** Tutti i moduli del corso con la sezione: serve a risolvere i link interni alle pagine. */
+export const buildModuleLocations = (sections: readonly CourseSection[]): readonly ModuleLocation[] =>
+  sections.flatMap((section) => section.modules.map((module) => ({ module, sectionName: section.name })));

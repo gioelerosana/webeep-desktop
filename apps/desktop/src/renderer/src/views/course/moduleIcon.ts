@@ -1,4 +1,4 @@
-import { Box, File as PageIcon, FileCheck, FileText, Folder, Link, ListChecks, MessagesSquare, type LucideIcon } from 'lucide-react';
+import { Box, BookOpen, FileCheck, FileText, Folder, Link, ListChecks, MessagesSquare, type LucideIcon } from 'lucide-react';
 import { LABEL_MODNAME } from './courseContent';
 
 const MODULE_ICONS: ReadonlyMap<string, LucideIcon> = new Map<string, LucideIcon>([
@@ -8,7 +8,7 @@ const MODULE_ICONS: ReadonlyMap<string, LucideIcon> = new Map<string, LucideIcon
   ['forum', MessagesSquare],
   ['assign', FileCheck],
   ['quiz', ListChecks],
-  ['page', PageIcon],
+  ['page', BookOpen],
 ]);
 
 /** Icona di un tipo di modulo Moodle; le etichette non ne hanno. */

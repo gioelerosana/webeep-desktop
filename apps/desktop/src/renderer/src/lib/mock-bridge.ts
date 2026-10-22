@@ -7,7 +7,18 @@
  * `?mock=signed-out` nell'URL parte dalla schermata di login.
  */
 import type { CalendarEvent, Course, CourseSection, ModuleContent, MoodleNotification } from '@webeep/moodle-api';
-import type { AuthState, IpcContract, IpcEventName, IpcEvents, IpcResult, Settings, WebeepBridge } from '../../../shared/ipc';
+import type {
+  AuthState,
+  CoursePage,
+  CoursePageFile,
+  IpcContract,
+  IpcErrorKind,
+  IpcEventName,
+  IpcEvents,
+  IpcResult,
+  Settings,
+  WebeepBridge,
+} from '../../../shared/ipc';
 import fixtures from './mock-fixtures.json';
 
 const SECONDS_PER_MS = 1000;
@@ -16,9 +27,25 @@ const DAY_S = 86_400;
 const MOCK_LATENCY_MS = 250;
 const SIGNED_OUT_FLAG = 'signed-out';
 const PDF_EXTENSION = '.pdf';
+const PDF_MIMETYPE = 'application/pdf';
+const BINARY_MIMETYPE = 'application/octet-stream';
+const PAGE_NOT_FOUND_MESSAGE = 'Pagina non trovata in questo corso';
 
 const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
 const { user } = fixtures;
+
+const mimetypeOf = (filename: string): string => (filename.endsWith(PDF_EXTENSION) ? PDF_MIMETYPE : BINARY_MIMETYPE);
+
+/** Errore da restituire al renderer come `IpcFailure`, come farebbe il main. */
+class MockIpcFailure extends Error {
+  override readonly name = 'MockIpcFailure';
+  readonly kind: IpcErrorKind;
+
+  constructor(kind: IpcErrorKind, message: string) {
+    super(message);
+    this.kind = kind;
+  }
+}
 
 const courses: readonly Course[] = fixtures.courses.map((course) => ({
   ...course,
@@ -36,7 +63,28 @@ const toContent = (file: FixtureFile): ModuleContent => ({
   filesize: file.size,
   fileurl: `${user.siteurl}/webservice/pluginfile.php/1/mod_resource/content/1/${encodeURIComponent(file.name)}`,
   timemodified: nowSeconds - file.daysAgo * DAY_S,
-  mimetype: file.name.endsWith(PDF_EXTENSION) ? 'application/pdf' : 'application/octet-stream',
+  mimetype: mimetypeOf(file.name),
+});
+
+type PageFixture = (typeof fixtures.pages)[number];
+type PageFileFixture = PageFixture['files'][number];
+
+const toCoursePageFile = (file: PageFileFixture): CoursePageFile => ({
+  filename: file.name,
+  filepath: '/',
+  filesize: file.size,
+  fileurl: file.fileurl,
+  mimetype: mimetypeOf(file.name),
+  timemodified: nowSeconds - file.daysAgo * DAY_S,
+});
+
+const toCoursePage = (page: PageFixture): CoursePage => ({
+  moduleId: page.moduleId,
+  name: page.name,
+  introHtml: page.introHtml,
+  contentHtml: page.contentHtml,
+  files: page.files.map(toCoursePageFile),
+  timemodified: nowSeconds - page.daysAgo * DAY_S,
 });
 
 const sections: readonly CourseSection[] = fixtures.sections.map((section) => ({
@@ -126,6 +174,12 @@ const handlers: MockHandlers = {
     notifications = notifications.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
     return null;
   },
+  // Un id di modulo che non è una pagina nelle fixture (es. 999) simula l'errore `invalid-input` del main.
+  'course:page': ({ moduleId }) => {
+    const page = fixtures.pages.find((item) => item.moduleId === moduleId);
+    if (!page) throw new MockIpcFailure('invalid-input', PAGE_NOT_FOUND_MESSAGE);
+    return toCoursePage(page);
+  },
   'files:open': () => null,
   'files:download': (request) => ({ path: `${settings.downloadDir}/${request.courseName}/${request.fileName}`, downloaded: true }),
   'files:reveal': () => null,
@@ -154,8 +208,14 @@ const mockBridge: WebeepBridge = {
     // Il mapped type garantisce che ogni handler accetti gli argomenti del proprio canale;
     // TypeScript non riesce a correlare `channel` e `args` attraverso l'indicizzazione.
     const handler = handlers[channel] as (...input: typeof args) => IpcContract[typeof channel]['result'];
-    const result: IpcResult<IpcContract[typeof channel]['result']> = { ok: true, data: handler(...args) };
-    return result;
+    try {
+      const result: IpcResult<IpcContract[typeof channel]['result']> = { ok: true, data: handler(...args) };
+      return result;
+    } catch (error) {
+      // Solo gli errori simulati diventano un `IpcFailure`; gli altri sono bug del bridge e si rilanciano.
+      if (error instanceof MockIpcFailure) return { ok: false, error: { kind: error.kind, message: error.message } };
+      throw error;
+    }
   },
   on: <TEvent extends IpcEventName>(event: TEvent, listener: (payload: IpcEvents[TEvent]) => void) => {
     const eventListeners = listeners[event];

@@ -1,0 +1,12 @@
+{
+  "pages": [
+    {
+      "id": 7010,
+      "coursemodule": 9020,
+      "course": 101,
+      "name": "Pagina essenziale",
+      "content": "<p>Solo il testo, nessun campo opzionale.</p>",
+      "timemodified": 1725000000
+    }
+  ]
+}

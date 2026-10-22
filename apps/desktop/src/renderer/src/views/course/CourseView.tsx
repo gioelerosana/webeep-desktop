@@ -1,5 +1,7 @@
 /*
  * Pagina di un corso: intestazione, filtro, sezioni richiudibili con moduli e file.
+ * Una pagina (`mod_page`) si apre al suo posto, nella stessa vista: lo stato è qui,
+ * così il filtro resta com'è quando si torna all'elenco.
  * I dati arrivano solo dagli hook di lib/queries; filtro e righe in courseContent.ts.
  */
 import type { CourseSection } from '@webeep/moodle-api';
@@ -9,9 +11,10 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Page } from '../../layout/Page';
 import { parseCourseName } from '../../lib/format';
 import { useCourseContents, useCourses } from '../../lib/queries';
-import { buildSectionViews } from './courseContent';
+import { buildModuleLocations, buildSectionViews } from './courseContent';
 import { CourseHeader } from './CourseHeader';
 import { CourseSections } from './CourseSections';
+import { CoursePageView } from './CoursePageView';
 import { useCourseFileActions } from './useCourseFileActions';
 
 export type CourseViewProps = { readonly courseId: number };
@@ -41,12 +44,29 @@ export const CourseView = ({ courseId }: CourseViewProps): ReactNode => {
   const fileActions = useCourseFileActions(courseName);
 
   const [query, setQuery] = useState('');
+  const [openPageId, setOpenPageId] = useState<number | null>(null);
   const sections = contents.data ?? NO_SECTIONS;
   const views = useMemo(() => buildSectionViews(sections, query), [sections, query]);
+  const locations = useMemo(() => buildModuleLocations(sections), [sections]);
 
   const refresh = (): void => {
     void contents.refetch();
   };
+
+  if (openPageId !== null) {
+    return (
+      <CoursePageView
+        key={openPageId}
+        courseId={courseId}
+        courseName={courseName}
+        moduleId={openPageId}
+        locations={locations}
+        fileActions={fileActions}
+        onOpenPage={setOpenPageId}
+        onBack={() => setOpenPageId(null)}
+      />
+    );
+  }
 
   return (
     <Page>
@@ -87,7 +107,7 @@ export const CourseView = ({ courseId }: CourseViewProps): ReactNode => {
           }
         />
       ) : null}
-      {contents.isSuccess ? <CourseSections views={views} query={query} fileActions={fileActions} /> : null}
+      {contents.isSuccess ? <CourseSections views={views} query={query} fileActions={fileActions} onOpenPage={setOpenPageId} /> : null}
     </Page>
   );
 };

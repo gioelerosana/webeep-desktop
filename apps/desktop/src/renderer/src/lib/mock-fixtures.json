@@ -34,7 +34,10 @@
           { "name": "L03 Derivate.pdf", "size": 2900000, "daysAgo": 16 }
         ] },
         { "id": 22, "name": "Registrazioni su Webex", "modname": "url", "externalUrl": "https://politecnicomilano.webex.com", "files": [] },
-        { "id": 23, "name": "Le lezioni del giovedì sono in aula T.2.1", "modname": "label", "description": "<p>Le lezioni del giovedì sono in aula <b>T.2.1</b>.</p>", "files": [] }
+        { "id": 23, "name": "Le lezioni del giovedì sono in aula T.2.1", "modname": "label", "description": "<p>Le lezioni del giovedì sono in aula <b>T.2.1</b>.</p>", "files": [] },
+        { "id": 24, "name": "LEZIONE 1 (teoria)", "modname": "page", "files": [] },
+        { "id": 25, "name": "LEZIONE 2 (in preparazione)", "modname": "page", "files": [] },
+        { "id": 26, "name": "LEZIONE 3", "modname": "page", "files": [] }
       ]
     },
     {
@@ -44,6 +47,22 @@
         { "id": 32, "name": "Consegna homework 1", "modname": "assign", "url": "https://webeep.polimi.it/mod/assign/view.php?id=32", "files": [] },
         { "id": 33, "name": "Quiz di autovalutazione", "modname": "quiz", "url": "https://webeep.polimi.it/mod/quiz/view.php?id=33", "files": [] }
       ]
+    }
+  ],
+  "pages": [
+    {
+      "moduleId": 24, "name": "LEZIONE 1 (teoria)", "daysAgo": 6,
+      "introHtml": "<p>Prima lezione: <em>teoria</em> e definizioni.</p>",
+      "contentHtml": "<h3>Introduzione alla teoria</h3><p>Questa pagina raccoglie i <strong>concetti chiave</strong> della prima lezione. Leggi le definizioni con calma e prova gli esercizi <em>prima</em> di passare oltre.</p><ul><li>limiti di funzioni</li><li>continuità</li><li>derivate (cenni)</li></ul><p>Le slide complete sono nel file <a href=\"https://webeep.polimi.it/webservice/pluginfile.php/123/mod_page/content/1/lezione1.pdf\">lezione1.pdf</a>.</p><p>Approfondimenti sul <a href=\"https://www.polimi.it/\">sito del Politecnico</a>.</p><p>Esercizi collegati: <a href=\"https://webeep.polimi.it/mod/resource/view.php?id=31\">Esercizi settimana 3</a>.</p><p><img src=\"https://webeep.polimi.it/webservice/pluginfile.php/123/mod_page/content/1/schema-limiti.png\" alt=\"Schema dei limiti\"></p><table><thead><tr><th>Caso</th><th>Esito</th></tr></thead><tbody><tr><td>x tende a 0</td><td>0</td></tr><tr><td>x tende a infinito</td><td>infinito</td></tr></tbody></table><script>alert('script')</script><p onclick=\"alert('click')\">Questo paragrafo non deve reagire al click.</p>",
+      "files": [
+        { "name": "lezione1.pdf", "fileurl": "https://webeep.polimi.it/webservice/pluginfile.php/123/mod_page/content/1/lezione1.pdf", "size": 350000, "daysAgo": 6 }
+      ]
+    },
+    {
+      "moduleId": 25, "name": "LEZIONE 2 (in preparazione)", "daysAgo": 1,
+      "introHtml": "",
+      "contentHtml": "",
+      "files": []
     }
   ],
   "events": [

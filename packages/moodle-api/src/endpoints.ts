@@ -10,6 +10,7 @@ import {
   actionEventsSchema,
   courseContentsSchema,
   coursesByTimelineSchema,
+  pagesByCoursesSchema,
   popupNotificationsSchema,
   publicConfigSchema,
   siteInfoSchema,
@@ -18,6 +19,7 @@ import {
   type CourseSection,
   type CourseTimelineClassification,
   type NotificationsPage,
+  type Page,
   type PublicConfig,
   type SiteInfo,
 } from './schemas.js';
@@ -48,6 +50,17 @@ export const getCourses = async (
 
 export const getCourseContents = (client: MoodleClient, courseId: number): Promise<readonly CourseSection[]> =>
   client.call('core_course_get_contents', { courseid: courseId }, courseContentsSchema);
+
+/**
+ * Pagine (`mod_page`) dei corsi indicati. Con `courseids` vuoto Moodle
+ * restituisce le pagine di tutti i corsi dell'utente: quel caso non va inviato,
+ * si risponde subito con un elenco vuoto.
+ */
+export const getPages = async (client: MoodleClient, courseIds: readonly number[]): Promise<readonly Page[]> => {
+  if (courseIds.length === 0) return [];
+  const result = await client.call('mod_page_get_pages_by_courses', { courseids: courseIds }, pagesByCoursesSchema);
+  return result.pages;
+};
 
 export type UpcomingEventsOptions = {
   readonly fromSeconds?: number;

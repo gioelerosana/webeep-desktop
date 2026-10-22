@@ -25,6 +25,7 @@ import type { IpcArgs, IpcChannel, IpcFailure, IpcResult, IpcReturn } from '../s
 import { getActiveUser, getAuthState, login, logout, NotSignedInError, withClient } from './auth.js';
 import { downloadFile, InvalidFileRequestError, openFile, revealFile } from './files.js';
 import { LoginCancelledError } from './login-window.js';
+import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
 
 /** Chi ha inviato il comando. In modalità web la finestra è sempre assente. */
@@ -54,6 +55,7 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof MoodleNetworkError) return { kind: 'network', message: error.message };
   if (error instanceof LoginCancelledError || error instanceof LaunchTokenError) return { kind: 'auth', message: error.message };
   if (error instanceof InvalidFileRequestError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidPageRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
@@ -81,6 +83,7 @@ const handlers: Handlers = {
     await withClient((client) => markNotificationRead(client, notificationId));
     return null;
   },
+  'course:page': async (_context, request) => getCoursePage(request),
 
   'files:open': async (_context, file) => {
     await openFile(file);

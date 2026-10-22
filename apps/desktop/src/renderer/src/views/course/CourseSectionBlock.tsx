@@ -8,10 +8,11 @@ import type { CourseFileActions } from './useCourseFileActions';
 export type CourseSectionBlockProps = {
   readonly view: CourseSectionView;
   readonly fileActions: CourseFileActions;
+  readonly onOpenPage: (moduleId: number) => void;
 };
 
 /** Sezione del corso: un blocco richiudibile, aperto di default. */
-export const CourseSectionBlock = ({ view, fileActions }: CourseSectionBlockProps): ReactNode => {
+export const CourseSectionBlock = ({ view, fileActions, onOpenPage }: CourseSectionBlockProps): ReactNode => {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -34,7 +35,7 @@ export const CourseSectionBlock = ({ view, fileActions }: CourseSectionBlockProp
           {view.summary !== '' ? <p className="px-4 py-3 text-sm text-muted-foreground">{view.summary}</p> : null}
           <div className="divide-y border-t">
             {view.rows.map((row, index) => (
-              <ModuleRow key={index} row={row} sectionName={view.name} fileActions={fileActions} />
+              <ModuleRow key={index} row={row} sectionName={view.name} fileActions={fileActions} onOpenPage={onOpenPage} />
             ))}
           </div>
         </div>
