@@ -26,6 +26,8 @@ const PART_SUFFIX = '.part';
 const MS_PER_SECOND = 1000;
 const MAX_SEGMENT_LENGTH = 120;
 const FALLBACK_SEGMENT = 'senza-nome';
+// Segmento del percorso dei file protetti di Moodle: solo questi richiedono il token (vedi asset-protocol.ts).
+const PLUGINFILE_MARKER = 'pluginfile.php';
 
 export class InvalidFileRequestError extends Error {
   override readonly name = 'InvalidFileRequestError';
@@ -104,5 +106,30 @@ export const openFile = async (file: FileRequest): Promise<void> => {
 
 export const downloadFile = async (file: FileRequest): Promise<DownloadResult> =>
   ensureLocalCopy(file, await downloadPathFor(file));
+
+/** Un file di WeBeep aperto in streaming, pronto da inoltrare a una risposta HTTP (modalità web). */
+export type WebeepFileStream = {
+  readonly contentType: string | undefined;
+  readonly body: Readable;
+};
+
+/**
+ * Apre lo stream di un file di WeBeep senza scaricarlo su disco. Accetta solo URL di
+ * WeBeep. Il token si aggiunge solo ai file protetti e non esce da questa funzione:
+ * chi riceve lo stream vede solo il contenuto e il Content-Type.
+ */
+export const openWebeepFile = async (fileUrl: string): Promise<WebeepFileStream> => {
+  assertWebeepUrl(fileUrl);
+  const isProtected = new URL(fileUrl).pathname.includes(PLUGINFILE_MARKER);
+  const response = await fetch(isProtected ? authenticatedFileUrl(fileUrl, getActiveToken()) : fileUrl);
+  if (!response.ok || !response.body) {
+    throw new MoodleNetworkError(`Download non riuscito (HTTP ${response.status})`, response.status);
+  }
+  return {
+    contentType: response.headers.get('content-type') ?? undefined,
+    // Stesso cast di `fetchToFile`: il ReadableStream di fetch è quello di node:stream/web a runtime.
+    body: Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
+  };
+};
 
 export const revealFile = (path: string): void => shell.showItemInFolder(path);

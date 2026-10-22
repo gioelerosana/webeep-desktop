@@ -1,5 +1,6 @@
 import { Button, cn } from '@webeep/ui-kit';
 import type { ReactNode } from 'react';
+import { isWebRenderer } from '../../lib/http-bridge';
 import { isIpcError } from '../../lib/ipc';
 import { useLogin } from '../../lib/queries';
 
@@ -36,9 +37,15 @@ export const LoginView = (): ReactNode => {
         </div>
 
         <div className="flex w-full max-w-xs flex-col items-center gap-3">
-          <Button className="w-full" loading={login.isPending} onClick={() => login.mutate()}>
-            Accedi con il Polimi
-          </Button>
+          {isWebRenderer() ? (
+            <p className="text-sm text-balance text-muted-foreground">
+              Accedi dall'app desktop: questa pagina usa la sessione del computer che la serve.
+            </p>
+          ) : (
+            <Button className="w-full" loading={login.isPending} onClick={() => login.mutate()}>
+              Accedi con il Polimi
+            </Button>
+          )}
           {feedback ? (
             <p
               role={feedback.isError ? 'alert' : undefined}

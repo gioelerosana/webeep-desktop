@@ -7,6 +7,7 @@ import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
 import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
 import { registerIpcHandlers } from './handlers.js';
+import { isWebMode, startWebServer } from './web-server.js';
 
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 820;
@@ -63,6 +64,11 @@ const start = async (): Promise<void> => {
   handleAssetProtocol();
   registerIpcHandlers();
   await restoreSession();
+  // Modalità web: il server serve l'interfaccia in rete locale, quindi nessuna finestra e nessun quit.
+  if (isWebMode()) {
+    await startWebServer();
+    return;
+  }
   if (isDiagnoseMode()) {
     try {
       await runDiagnosis();
@@ -88,7 +94,8 @@ if (!app.requestSingleInstanceLock()) {
     window.focus();
   });
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // In modalità web il processo serve la rete anche senza finestre: non deve uscire.
+    if (process.platform !== 'darwin' && !isWebMode()) app.quit();
   });
   void start();
 }

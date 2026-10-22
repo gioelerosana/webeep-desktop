@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { installHttpBridgeIfNeeded } from './lib/http-bridge';
 import { isIpcError } from './lib/ipc';
 import './styles.css';
 
@@ -23,6 +24,9 @@ const queryClient = new QueryClient({
 if (import.meta.env.DEV) {
   const { installMockBridgeIfNeeded } = await import('./lib/mock-bridge');
   installMockBridgeIfNeeded();
+} else {
+  // Build fuori da Electron (modalità web): l'interfaccia parla con le API HTTP del main. In Electron il preload c'è già.
+  installHttpBridgeIfNeeded();
 }
 
 const container = document.getElementById('root');
