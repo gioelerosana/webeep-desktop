@@ -1,7 +1,7 @@
 /*
  * Entry del main process: ciclo di vita dell'app e finestra principale.
  */
-import { app, BrowserWindow, shell, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, shell, type BrowserWindowConstructorOptions } from 'electron';
 import { join } from 'node:path';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
@@ -14,6 +14,9 @@ const WINDOW_HEIGHT = 820;
 const MIN_WINDOW_WIDTH = 900;
 const MIN_WINDOW_HEIGHT = 600;
 const EXTERNAL_PROTOCOLS: readonly string[] = ['http:', 'https:'];
+const SINGLE_INSTANCE_MESSAGE =
+  'WeBeep Desktop è già aperto: la finestra esistente viene portata in primo piano. ' +
+  "Se non compare, chiudi l'istanza precedente (per esempio pnpm dev o pnpm web).";
 /**
  * La barra del titolo è disegnata dall'app (canali `window:*`). Su macOS si tiene
  * il titolo nativo nascosto, così restano i semafori; altrove la cornice va tolta.
@@ -84,8 +87,19 @@ const start = async (): Promise<void> => {
   });
 };
 
-if (!app.requestSingleInstanceLock()) {
+/**
+ * Seconda istanza: esce subito, ma prima avvisa. L'app impacchettata non ha un terminale,
+ * quindi un `console.warn` non si vede e sembra che la finestra non si apra mai.
+ * Il lock è condiviso con `pnpm dev` e `pnpm web` (stessa cartella dati).
+ */
+const quitDuplicateInstance = async (): Promise<void> => {
+  await app.whenReady();
+  dialog.showMessageBoxSync({ type: 'info', message: SINGLE_INSTANCE_MESSAGE, buttons: ['OK'] });
   app.quit();
+};
+
+if (!app.requestSingleInstanceLock()) {
+  void quitDuplicateInstance();
 } else {
   app.on('second-instance', () => {
     const [window] = BrowserWindow.getAllWindows();

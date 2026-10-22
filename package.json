@@ -11,6 +11,7 @@
     "diagnose": "pnpm --filter @webeep/desktop diagnose",
     "web": "pnpm --filter @webeep/desktop web",
     "build": "pnpm -r typecheck && pnpm --filter @webeep/desktop build",
+    "dist:linux": "pnpm typecheck && pnpm --filter @webeep/desktop dist:linux",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @webeep/moodle-api test"
   },

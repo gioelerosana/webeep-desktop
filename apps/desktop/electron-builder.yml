@@ -1,0 +1,33 @@
+# Pacchetto di distribuzione (electron-builder): AppImage Linux x64 e installer NSIS Windows x64.
+# electron-vite compila in out/ (main, preload, renderer): qui si impacchetta quell'output.
+# Il pacchetto non include src/ né i pacchetti del workspace, già bundlati da vite.
+# Nessuna firma del codice: in CI si imposta CSC_IDENTITY_AUTO_DISCOVERY=false.
+appId: it.polimi.webeep.desktop
+productName: WeBeep Desktop
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+asar: true
+npmRebuild: false
+publish:
+  provider: github
+  owner: gioelerosana
+  repo: webeep-desktop
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Education
+  executableName: webeep-desktop
+  syncDesktopName: true
+  artifactName: WeBeep-Desktop-${version}-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  artifactName: WeBeep-Desktop-Setup-${version}-${arch}.${ext}
