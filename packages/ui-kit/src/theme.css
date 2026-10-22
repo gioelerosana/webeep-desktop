@@ -1,0 +1,188 @@
+/*
+ * Token del design system T3 Code (https://claude.ai/artifact/8tZb4puZkxqf3WNUoitVgr),
+ * valori esatti da tokens.json. Il tema si sceglie con `data-theme` su <html>
+ * ("light" | "dark"); senza attributo segue il sistema.
+ *
+ * Il renderer importa prima `tailwindcss`, poi questo file: `@theme inline`
+ * espone i token come utility (`bg-background`, `text-muted-foreground`,
+ * `border-input`, `rounded-control`, …).
+ */
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.992 0 0);
+  --foreground: oklch(0.274 0.006 286.033);
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.488 0.217 264);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.985 0 0);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.985 0 0);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.871 0.006 286.286);
+  --ring: var(--primary);
+  --error: oklch(0.637 0.237 25.331);
+  --error-foreground: oklch(0.505 0.213 27.518);
+  --info: oklch(0.623 0.214 259.815);
+  --info-foreground: oklch(0.488 0.243 264.376);
+  --success: oklch(0.696 0.17 162.48);
+  --success-foreground: oklch(0.508 0.118 165.612);
+  --warning: oklch(0.769 0.188 70.08);
+  --warning-foreground: oklch(0.555 0.163 48.998);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-control-surface: oklch(0.967 0.001 286.375);
+  --sidebar-row-active: #ffffff;
+
+  /* Tinte di stato: 8% in chiaro, 16% in scuro (README §Principles). */
+  --tint-strength: 8%;
+  --input-surface: var(--background);
+  --outline-surface: var(--popover);
+
+  --shadow-composer: 0 12px 28px -18px rgba(0, 0, 0, 0.4);
+  --shadow-dialog: 0 24px 64px -24px rgba(0, 0, 0, 0.65);
+  --inset-shadow-control-highlight: inset 0 1px rgba(255, 255, 255, 0.16);
+  --opacity-disabled: 0.64;
+  --glass-blur: 12px;
+
+  --app-scrollbar-width: 6px;
+  --sidebar-width: 16rem;
+  --workspace-topbar-height: 52px;
+  --workspace-gutter: 1.25rem;
+  --content-max-width: 52rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.97 0 0);
+  --card: #111111;
+  --popover: #111111;
+  --primary: oklch(0.571 0.21 264);
+  --secondary: rgba(255, 255, 255, 0.03);
+  --muted: rgba(255, 255, 255, 0.03);
+  --muted-foreground: #818181;
+  --accent: rgba(255, 255, 255, 0.04);
+  --accent-foreground: oklch(0.97 0 0);
+  --border: rgba(255, 255, 255, 0.06);
+  --input: rgba(255, 255, 255, 0.08);
+  --error: #fb414a;
+  --error-foreground: oklch(0.704 0.191 22.216);
+  --info-foreground: oklch(0.707 0.165 254.624);
+  --success-foreground: oklch(0.765 0.177 163.223);
+  --warning-foreground: oklch(0.828 0.189 84.429);
+  --sidebar: #111111;
+  --sidebar-control-surface: rgba(255, 255, 255, 0.03);
+  --sidebar-row-active: rgba(255, 255, 255, 0.04);
+
+  --tint-strength: 16%;
+  --input-surface: color-mix(in srgb, var(--input) 32%, transparent);
+  --outline-surface: color-mix(in srgb, var(--input) 32%, transparent);
+
+  --shadow-composer: 0 14px 32px -18px rgba(0, 0, 0, 0.75);
+  --shadow-dialog: inset 0 1px rgba(255, 255, 255, 0.04), 0 24px 72px -20px rgba(0, 0, 0, 0.9);
+  --glass-blur: 16px;
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-control-surface: var(--sidebar-control-surface);
+  --color-sidebar-row-active: var(--sidebar-row-active);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-control: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+
+  --text-2xs: 11px;
+  --text-2xs--line-height: 16px;
+  --text-3xs: 10px;
+  --text-3xs--line-height: 14px;
+
+  --shadow-composer: var(--shadow-composer);
+  --shadow-dialog: var(--shadow-dialog);
+
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: var(--app-scrollbar-width);
+    height: var(--app-scrollbar-width);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--input);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

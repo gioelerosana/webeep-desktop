@@ -1,0 +1,60 @@
+{
+  "user": {
+    "sitename": "WeBeep",
+    "siteurl": "https://webeep.polimi.it",
+    "username": "10712345",
+    "firstname": "Giulia",
+    "lastname": "Bianchi",
+    "fullname": "Giulia Bianchi",
+    "userid": 4242,
+    "userpictureurl": "",
+    "lang": "it"
+  },
+  "courses": [
+    { "id": 101, "fullname": "ANALISI MATEMATICA 1 [C.I.] (FORMIGGINI MARIA)", "shortname": "AM1-2026", "coursecategory": "Ingegneria Informatica", "progress": 35 },
+    { "id": 102, "fullname": "CHIMICA GENERALE (ROSSI LUCA)", "shortname": "CHIM-2026", "coursecategory": "Ingegneria Informatica", "progress": 50 },
+    { "id": 103, "fullname": "FONDAMENTI DI INFORMATICA (VERDI ANNA)", "shortname": "FOND-INF-2026", "coursecategory": "Ingegneria Informatica", "progress": 20 },
+    { "id": 104, "fullname": "GEOMETRIA E ALGEBRA LINEARE (NERI PAOLO)", "shortname": "GAL-2026", "coursecategory": "Ingegneria Informatica", "progress": 10 }
+  ],
+  "sections": [
+    {
+      "id": 1, "name": "Generale", "section": 0,
+      "summary": "<p>Benvenuti al corso. Orario di ricevimento: martedì 14:00.</p>",
+      "modules": [
+        { "id": 11, "name": "Avvisi", "modname": "forum", "url": "https://webeep.polimi.it/mod/forum/view.php?id=11", "files": [] },
+        { "id": 12, "name": "Programma del corso", "modname": "resource", "files": [{ "name": "Programma 2026-27.pdf", "size": 184000, "daysAgo": 40 }] }
+      ]
+    },
+    {
+      "id": 2, "name": "Lezioni", "section": 1, "summary": "",
+      "modules": [
+        { "id": 21, "name": "Slide lezioni 1-5", "modname": "folder", "files": [
+          { "name": "L01 Introduzione.pdf", "size": 2400000, "daysAgo": 30 },
+          { "name": "L02 Limiti.pdf", "size": 3100000, "daysAgo": 23 },
+          { "name": "L03 Derivate.pdf", "size": 2900000, "daysAgo": 16 }
+        ] },
+        { "id": 22, "name": "Registrazioni su Webex", "modname": "url", "externalUrl": "https://politecnicomilano.webex.com", "files": [] },
+        { "id": 23, "name": "Le lezioni del giovedì sono in aula T.2.1", "modname": "label", "description": "<p>Le lezioni del giovedì sono in aula <b>T.2.1</b>.</p>", "files": [] }
+      ]
+    },
+    {
+      "id": 3, "name": "Esercitazioni", "section": 2, "summary": "",
+      "modules": [
+        { "id": 31, "name": "Esercizi settimana 3", "modname": "resource", "files": [{ "name": "Esercizi-03.pdf", "size": 420000, "daysAgo": 2 }] },
+        { "id": 32, "name": "Consegna homework 1", "modname": "assign", "url": "https://webeep.polimi.it/mod/assign/view.php?id=32", "files": [] },
+        { "id": 33, "name": "Quiz di autovalutazione", "modname": "quiz", "url": "https://webeep.polimi.it/mod/quiz/view.php?id=33", "files": [] }
+      ]
+    }
+  ],
+  "events": [
+    { "id": 501, "name": "Homework 1 è in scadenza", "inHours": 5, "courseId": 101, "modulename": "assign" },
+    { "id": 502, "name": "Quiz di autovalutazione si chiude", "inHours": 26, "courseId": 102, "modulename": "quiz" },
+    { "id": 503, "name": "Consegna progetto C", "inHours": 72, "courseId": 103, "modulename": "assign" },
+    { "id": 504, "name": "Esercitazione 4 è in scadenza", "inHours": 144, "courseId": 104, "modulename": "assign" }
+  ],
+  "notifications": [
+    { "id": 901, "subject": "Nuovo avviso in Analisi Matematica 1: spostamento lezione", "hoursAgo": 2, "read": false },
+    { "id": 902, "subject": "Valutazione disponibile: Homework 0", "hoursAgo": 20, "read": false },
+    { "id": 903, "subject": "Nuovo file in Chimica Generale: Esercizi-03.pdf", "hoursAgo": 50, "read": true }
+  ]
+}

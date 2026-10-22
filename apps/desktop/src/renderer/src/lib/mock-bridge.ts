@@ -1,0 +1,164 @@
+/*
+ * Bridge finto per sviluppare l'interfaccia nel browser (`pnpm dev`, poi
+ * http://localhost:5173), senza Electron né login. Si installa SOLO in dev e
+ * SOLO se `window.webeep` manca. I dati sono in `mock-fixtures.json`; qui si
+ * trasformano nelle forme di Moodle, con date relative a "adesso".
+ *
+ * `?mock=signed-out` nell'URL parte dalla schermata di login.
+ */
+import type { CalendarEvent, Course, CourseSection, ModuleContent, MoodleNotification } from '@webeep/moodle-api';
+import type { AuthState, IpcContract, IpcEventName, IpcEvents, IpcResult, Settings, WebeepBridge } from '../../../shared/ipc';
+import fixtures from './mock-fixtures.json';
+
+const SECONDS_PER_MS = 1000;
+const HOUR_S = 3_600;
+const DAY_S = 86_400;
+const MOCK_LATENCY_MS = 250;
+const SIGNED_OUT_FLAG = 'signed-out';
+const PDF_EXTENSION = '.pdf';
+
+const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
+const { user } = fixtures;
+
+const courses: readonly Course[] = fixtures.courses.map((course) => ({
+  ...course,
+  summary: '',
+  isfavourite: false,
+  hidden: false,
+  viewurl: `${user.siteurl}/course/view.php?id=${course.id}`,
+}));
+
+type FixtureFile = { readonly name: string; readonly size: number; readonly daysAgo: number };
+
+const toContent = (file: FixtureFile): ModuleContent => ({
+  type: 'file',
+  filename: file.name,
+  filesize: file.size,
+  fileurl: `${user.siteurl}/webservice/pluginfile.php/1/mod_resource/content/1/${encodeURIComponent(file.name)}`,
+  timemodified: nowSeconds - file.daysAgo * DAY_S,
+  mimetype: file.name.endsWith(PDF_EXTENSION) ? 'application/pdf' : 'application/octet-stream',
+});
+
+const sections: readonly CourseSection[] = fixtures.sections.map((section) => ({
+  id: section.id,
+  name: section.name,
+  summary: section.summary,
+  section: section.section,
+  visible: true,
+  uservisible: true,
+  modules: section.modules.map((module) => ({
+    id: module.id,
+    name: module.name,
+    modname: module.modname,
+    url: 'url' in module ? module.url : undefined,
+    description: 'description' in module ? module.description : undefined,
+    visible: true,
+    uservisible: true,
+    contents:
+      'externalUrl' in module
+        ? [{ type: 'url', filename: module.name, filesize: 0, fileurl: module.externalUrl }]
+        : module.files.map(toContent),
+  })),
+}));
+
+const courseById = new Map(courses.map((course) => [course.id, course]));
+
+const events: readonly CalendarEvent[] = fixtures.events.map((event) => {
+  const course = courseById.get(event.courseId);
+  return {
+    id: event.id,
+    name: event.name,
+    description: '',
+    eventtype: 'due',
+    modulename: event.modulename,
+    timestart: nowSeconds + event.inHours * HOUR_S,
+    timesort: nowSeconds + event.inHours * HOUR_S,
+    timeduration: 0,
+    overdue: false,
+    url: `${user.siteurl}/mod/${event.modulename}/view.php?id=${event.id}`,
+    course: course ? { id: course.id, fullname: course.fullname, shortname: course.shortname } : undefined,
+  };
+});
+
+let notifications: readonly MoodleNotification[] = fixtures.notifications.map((item) => ({
+  id: item.id,
+  subject: item.subject,
+  smallmessage: item.subject,
+  fullmessagehtml: `<p>${item.subject}</p>`,
+  contexturl: `${user.siteurl}/mod/forum/discuss.php?d=${item.id}`,
+  contexturlname: 'Apri su WeBeep',
+  component: 'mod_forum',
+  eventtype: 'posts',
+  timecreated: nowSeconds - item.hoursAgo * HOUR_S,
+  read: item.read,
+}));
+
+let auth: AuthState =
+  new URLSearchParams(window.location.search).get('mock') === SIGNED_OUT_FLAG
+    ? { status: 'signed-out' }
+    : { status: 'signed-in', user };
+let settings: Settings = { downloadDir: '/home/giulia/Scaricati/WeBeep', theme: 'system' };
+
+const listeners = new Set<(state: AuthState) => void>();
+const setAuth = (next: AuthState): AuthState => {
+  auth = next;
+  listeners.forEach((listener) => listener(next));
+  return next;
+};
+
+type MockHandlers = {
+  readonly [TChannel in keyof IpcContract]: (...args: IpcContract[TChannel]['args']) => IpcContract[TChannel]['result'];
+};
+
+const handlers: MockHandlers = {
+  'auth:get-state': () => auth,
+  'auth:login': () => setAuth({ status: 'signed-in', user }),
+  'auth:logout': () => setAuth({ status: 'signed-out' }),
+  'moodle:courses': () => courses,
+  'moodle:course-contents': () => sections,
+  'moodle:upcoming-events': () => events,
+  'moodle:notifications': () => ({ notifications: [...notifications], unreadcount: notifications.filter((item) => !item.read).length }),
+  'moodle:mark-notification-read': (notificationId) => {
+    notifications = notifications.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
+    return null;
+  },
+  'files:open': () => null,
+  'files:download': (request) => ({ path: `${settings.downloadDir}/${request.courseName}/${request.fileName}`, downloaded: true }),
+  'files:reveal': () => null,
+  'shell:open-external': (url) => {
+    window.open(url, '_blank', 'noopener');
+    return null;
+  },
+  'settings:get': () => settings,
+  'settings:update': (patch) => {
+    settings = { ...settings, ...patch };
+    return settings;
+  },
+  'settings:choose-download-dir': () => '/home/giulia/Documenti/Polimi',
+};
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const mockBridge: WebeepBridge = {
+  invoke: async (channel, ...args) => {
+    await delay(MOCK_LATENCY_MS);
+    // Il mapped type garantisce che ogni handler accetti gli argomenti del proprio canale;
+    // TypeScript non riesce a correlare `channel` e `args` attraverso l'indicizzazione.
+    const handler = handlers[channel] as (...input: typeof args) => IpcContract[typeof channel]['result'];
+    const result: IpcResult<IpcContract[typeof channel]['result']> = { ok: true, data: handler(...args) };
+    return result;
+  },
+  on: <TEvent extends IpcEventName>(_event: TEvent, listener: (payload: IpcEvents[TEvent]) => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+  platform: 'linux',
+};
+
+export const installMockBridgeIfNeeded = (): void => {
+  if (!import.meta.env.DEV || 'webeep' in window) return;
+  Object.defineProperty(window, 'webeep', { value: mockBridge });
+  console.info('[webeep] Bridge finto attivo: dati inventati, nessuna chiamata a WeBeep.');
+};

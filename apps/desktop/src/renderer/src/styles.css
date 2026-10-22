@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+@import '@webeep/ui-kit/theme.css';
+
+/* Tailwind deve vedere anche le classi usate dentro il kit. */
+@source '../../../../../packages/ui-kit/src';
