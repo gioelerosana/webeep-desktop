@@ -14,6 +14,7 @@
 import type {
   CalendarEvent,
   Course,
+  CourseSearchPage,
   CourseSection,
   CourseTimelineClassification,
   NotificationsPage,
@@ -77,6 +78,18 @@ export type CoursePage = {
   readonly timemodified: number;
 };
 
+/** Ricerca nel catalogo: il testo è pulito dal main (trim) e deve avere questa lunghezza. */
+export const COURSE_SEARCH_MIN_QUERY_LENGTH = 2;
+export const COURSE_SEARCH_MAX_QUERY_LENGTH = 100;
+/** Risultati per pagina: la paginazione la decide il main, il renderer chiede solo il numero di pagina. */
+export const COURSE_SEARCH_PAGE_SIZE = 20;
+
+export type CourseSearchRequest = {
+  readonly query: string;
+  /** Pagina a partire da 0. */
+  readonly page: number;
+};
+
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
   /** Apre la finestra di login Polimi; si risolve a login finito o annullato. */
@@ -88,6 +101,8 @@ export type IpcContract = {
   'moodle:upcoming-events': { readonly args: []; readonly result: readonly CalendarEvent[] };
   'moodle:notifications': { readonly args: []; readonly result: NotificationsPage };
   'moodle:mark-notification-read': { readonly args: [notificationId: number]; readonly result: null };
+  /** Ricerca nel catalogo, anche tra corsi a cui l'utente non è iscritto. Errore `invalid-input` se query o pagina non sono valide. */
+  'moodle:searchCourses': { readonly args: [request: CourseSearchRequest]; readonly result: CourseSearchPage };
   /** Pagina `mod_page` di un corso. Errore `invalid-input` se il modulo non è una pagina di quel corso. */
   'course:page': { readonly args: [request: CoursePageRequest]; readonly result: CoursePage };
 

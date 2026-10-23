@@ -6,18 +6,27 @@
  *
  * `?mock=signed-out` nell'URL parte dalla schermata di login.
  */
-import type { CalendarEvent, Course, CourseSection, ModuleContent, MoodleNotification } from '@webeep/moodle-api';
 import type {
-  AuthState,
-  CoursePage,
-  CoursePageFile,
-  IpcContract,
-  IpcErrorKind,
-  IpcEventName,
-  IpcEvents,
-  IpcResult,
-  Settings,
-  WebeepBridge,
+  CalendarEvent,
+  Course,
+  CourseSearchResult,
+  CourseSection,
+  CourseTimelineClassification,
+  ModuleContent,
+  MoodleNotification,
+} from '@webeep/moodle-api';
+import {
+  COURSE_SEARCH_PAGE_SIZE,
+  type AuthState,
+  type CoursePage,
+  type CoursePageFile,
+  type IpcContract,
+  type IpcErrorKind,
+  type IpcEventName,
+  type IpcEvents,
+  type IpcResult,
+  type Settings,
+  type WebeepBridge,
 } from '../../../shared/ipc';
 import fixtures from './mock-fixtures.json';
 
@@ -30,6 +39,10 @@ const PDF_EXTENSION = '.pdf';
 const PDF_MIMETYPE = 'application/pdf';
 const BINARY_MIMETYPE = 'application/octet-stream';
 const PAGE_NOT_FOUND_MESSAGE = 'Pagina non trovata in questo corso';
+/** Una query con questo testo simula un errore del servizio di ricerca. */
+const SEARCH_ERROR_QUERY = 'errore';
+const SEARCH_ERROR_MESSAGE = 'Ricerca non disponibile (errore simulato)';
+const SEARCH_LOCALE = 'it-IT';
 
 const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
 const { user } = fixtures;
@@ -47,13 +60,36 @@ class MockIpcFailure extends Error {
   }
 }
 
-const courses: readonly Course[] = fixtures.courses.map((course) => ({
+type FixtureCourse = (typeof fixtures.courses)[number];
+
+const toCourse = (course: FixtureCourse): Course => ({
   ...course,
   summary: '',
   isfavourite: false,
   hidden: false,
   viewurl: `${user.siteurl}/course/view.php?id=${course.id}`,
-}));
+});
+
+const inProgressCourses: readonly Course[] = fixtures.courses.map(toCourse);
+const pastCourses: readonly Course[] = fixtures.pastCourses.map(toCourse);
+const courses: readonly Course[] = [...inProgressCourses, ...pastCourses];
+
+/** Come Moodle: le classificazioni che nelle fixture non hanno corsi restituiscono un elenco vuoto. */
+const coursesByClassification: Record<CourseTimelineClassification, readonly Course[]> = {
+  all: courses,
+  inprogress: inProgressCourses,
+  past: pastCourses,
+  future: [],
+  favourites: [],
+  hidden: [],
+};
+
+const catalog: readonly CourseSearchResult[] = fixtures.catalog;
+
+const matchesSearch = (course: CourseSearchResult, normalizedQuery: string): boolean =>
+  [course.fullname, course.shortname, course.categoryname ?? ''].some((field) =>
+    field.toLocaleLowerCase(SEARCH_LOCALE).includes(normalizedQuery),
+  );
 
 type FixtureFile = { readonly name: string; readonly size: number; readonly daysAgo: number };
 
@@ -166,10 +202,18 @@ const handlers: MockHandlers = {
   'auth:get-state': () => auth,
   'auth:login': () => setAuth({ status: 'signed-in', user }),
   'auth:logout': () => setAuth({ status: 'signed-out' }),
-  'moodle:courses': () => courses,
+  'moodle:courses': (classification = 'inprogress') => coursesByClassification[classification],
   'moodle:course-contents': () => sections,
   'moodle:upcoming-events': () => events,
   'moodle:notifications': () => ({ notifications: [...notifications], unreadcount: notifications.filter((item) => !item.read).length }),
+  // Come il main: il testo è pulito con trim e la pagina parte da 0; l'errore simulato non arriva al filtro.
+  'moodle:searchCourses': ({ query, page }) => {
+    const normalizedQuery = query.trim().toLocaleLowerCase(SEARCH_LOCALE);
+    if (normalizedQuery === SEARCH_ERROR_QUERY) throw new MockIpcFailure('network', SEARCH_ERROR_MESSAGE);
+    const matches = catalog.filter((course) => matchesSearch(course, normalizedQuery));
+    const firstIndex = page * COURSE_SEARCH_PAGE_SIZE;
+    return { total: matches.length, courses: matches.slice(firstIndex, firstIndex + COURSE_SEARCH_PAGE_SIZE) };
+  },
   'moodle:mark-notification-read': (notificationId) => {
     notifications = notifications.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
     return null;

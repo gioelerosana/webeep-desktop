@@ -19,9 +19,19 @@ import {
   MoodleApiError,
   MoodleNetworkError,
   MoodleResponseShapeError,
+  searchCourses,
 } from '@webeep/moodle-api';
 import { LaunchTokenError } from '@webeep/moodle-api/auth';
-import type { IpcArgs, IpcChannel, IpcFailure, IpcResult, IpcReturn } from '../shared/ipc.js';
+import {
+  COURSE_SEARCH_MAX_QUERY_LENGTH,
+  COURSE_SEARCH_MIN_QUERY_LENGTH,
+  COURSE_SEARCH_PAGE_SIZE,
+  type IpcArgs,
+  type IpcChannel,
+  type IpcFailure,
+  type IpcResult,
+  type IpcReturn,
+} from '../shared/ipc.js';
 import { getActiveUser, getAuthState, login, logout, NotSignedInError, withClient } from './auth.js';
 import { downloadFile, InvalidFileRequestError, openFile, revealFile } from './files.js';
 import { LoginCancelledError } from './login-window.js';
@@ -41,6 +51,36 @@ type Handlers = { readonly [TChannel in IpcChannel]: Handler<TChannel> };
 const EXTERNAL_PROTOCOLS: readonly string[] = ['http:', 'https:'];
 const WINDOW_UNAVAILABLE_MESSAGE = 'nessuna finestra per questo comando';
 
+class InvalidSearchRequestError extends Error {
+  override readonly name = 'InvalidSearchRequestError';
+}
+
+/** Gli argomenti arrivano dal renderer, quindi si ricontrollano qui: il tipo da solo non basta. */
+const parseSearchQuery = (raw: unknown): string => {
+  const query = typeof raw === 'string' ? raw.trim() : '';
+  if (query.length < COURSE_SEARCH_MIN_QUERY_LENGTH || query.length > COURSE_SEARCH_MAX_QUERY_LENGTH) {
+    throw new InvalidSearchRequestError(
+      `La ricerca deve avere tra ${COURSE_SEARCH_MIN_QUERY_LENGTH} e ${COURSE_SEARCH_MAX_QUERY_LENGTH} caratteri`,
+    );
+  }
+  return query;
+};
+
+const parseSearchPage = (raw: unknown): number => {
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0) {
+    throw new InvalidSearchRequestError('Pagina della ricerca non valida');
+  }
+  return raw;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+/* Un argomento `null` o non oggetto arriva dal renderer: va rifiutato prima di leggerne i campi. */
+const parseSearchRequest = (raw: unknown): { readonly query: string; readonly page: number } => {
+  if (!isRecord(raw)) throw new InvalidSearchRequestError('Richiesta di ricerca non valida');
+  return { query: parseSearchQuery(raw.query), page: parseSearchPage(raw.page) };
+};
+
 class WindowUnavailableError extends Error {
   override readonly name = 'WindowUnavailableError';
 
@@ -56,6 +96,7 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof LoginCancelledError || error instanceof LaunchTokenError) return { kind: 'auth', message: error.message };
   if (error instanceof InvalidFileRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidPageRequestError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidSearchRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
@@ -82,6 +123,10 @@ const handlers: Handlers = {
   'moodle:mark-notification-read': async (_context, notificationId) => {
     await withClient((client) => markNotificationRead(client, notificationId));
     return null;
+  },
+  'moodle:searchCourses': async (_context, request) => {
+    const { query, page } = parseSearchRequest(request);
+    return withClient((client) => searchCourses(client, { query, page, perPage: COURSE_SEARCH_PAGE_SIZE }));
   },
   'course:page': async (_context, request) => getCoursePage(request),
 

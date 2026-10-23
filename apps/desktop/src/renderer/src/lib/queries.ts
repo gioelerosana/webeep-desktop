@@ -3,22 +3,42 @@
  * mai `invoke` diretto per leggere dati: così cache, chiavi e invalidazioni
  * stanno in un posto solo.
  */
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
 import type {
   CalendarEvent,
   Course,
+  CourseSearchPage,
+  CourseSearchResult,
   CourseSection,
   CourseTimelineClassification,
   NotificationsPage,
 } from '@webeep/moodle-api';
-import type { AuthState, CoursePage, DownloadResult, FileRequest, Settings } from '../../../shared/ipc';
+import {
+  COURSE_SEARCH_MAX_QUERY_LENGTH,
+  COURSE_SEARCH_MIN_QUERY_LENGTH,
+  type AuthState,
+  type CoursePage,
+  type DownloadResult,
+  type FileRequest,
+  type Settings,
+} from '../../../shared/ipc';
 import { invoke } from './ipc';
 
 export const queryKeys = {
   auth: ['auth'] as const,
   courses: (classification: CourseTimelineClassification) => ['courses', classification] as const,
   courseContents: (courseId: number) => ['course-contents', courseId] as const,
+  courseSearch: (query: string) => ['course-search', query] as const,
   coursePage: (courseId: number, moduleId: number) => ['course-page', courseId, moduleId] as const,
   upcomingEvents: ['upcoming-events'] as const,
   notifications: ['notifications'] as const,
@@ -70,6 +90,55 @@ export const useCoursePage = (courseId: number, moduleId: number): UseQueryResul
     queryKey: queryKeys.coursePage(courseId, moduleId),
     queryFn: () => invoke('course:page', { courseId, moduleId }),
   });
+
+/** Corso trovato nella ricerca. `enrolled` dice se è tra i corsi a cui l'utente è iscritto. */
+export type CourseSearchHit = CourseSearchResult & { readonly enrolled: boolean };
+
+export type CourseSearchHitsPage = {
+  readonly total: number;
+  readonly courses: readonly CourseSearchHit[];
+};
+
+const useEnrolledCourseIds = (): ReadonlySet<number> => {
+  const allCourses = useCourses('all');
+  return useMemo(() => new Set((allCourses.data ?? []).map((course) => course.id)), [allCourses.data]);
+};
+
+const isSearchableQuery = (query: string): boolean =>
+  query.length >= COURSE_SEARCH_MIN_QUERY_LENGTH && query.length <= COURSE_SEARCH_MAX_QUERY_LENGTH;
+
+/**
+ * Ricerca nel catalogo, a pagine (il main ne decide la dimensione). Il testo è
+ * pulito con `trim` e la query parte solo se la lunghezza è valida: il debounce
+ * sta nella vista, non qui. I risultati sono arricchiti con `enrolled` quando
+ * arriva l'elenco dei corsi iscritti.
+ */
+export const useCourseSearch = (query: string): UseInfiniteQueryResult<InfiniteData<CourseSearchHitsPage>, Error> => {
+  const normalizedQuery = query.trim();
+  const enrolledIds = useEnrolledCourseIds();
+  const markEnrolled = useCallback(
+    (data: InfiniteData<CourseSearchPage>): InfiniteData<CourseSearchHitsPage> => ({
+      pageParams: data.pageParams,
+      pages: data.pages.map((page) => ({
+        total: page.total,
+        courses: page.courses.map((course) => ({ ...course, enrolled: enrolledIds.has(course.id) })),
+      })),
+    }),
+    [enrolledIds],
+  );
+  return useInfiniteQuery({
+    queryKey: queryKeys.courseSearch(normalizedQuery),
+    queryFn: ({ pageParam }) => invoke('moodle:searchCourses', { query: normalizedQuery, page: pageParam }),
+    initialPageParam: 0,
+    // Si va avanti finché i risultati caricati non raggiungono il totale; una pagina vuota ferma il giro.
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedCount = allPages.reduce((count, page) => count + page.courses.length, 0);
+      return lastPage.courses.length > 0 && loadedCount < lastPage.total ? allPages.length : undefined;
+    },
+    select: markEnrolled,
+    enabled: isSearchableQuery(normalizedQuery),
+  });
+};
 
 export const useUpcomingEvents = (): UseQueryResult<readonly CalendarEvent[]> =>
   useQuery({ queryKey: queryKeys.upcomingEvents, queryFn: () => invoke('moodle:upcoming-events') });
