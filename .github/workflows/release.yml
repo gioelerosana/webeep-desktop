@@ -10,10 +10,35 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # Prima di costruire: un tag `v*` che non coincide con la versione del package produrrebbe
+  # artefatti e Release con un numero sbagliato. Su dispatch manuale il controllo è saltato.
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versione del tag e del package
+        env:
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$REF" != refs/tags/v* ]]; then
+            echo "Nessun tag di versione ($REF): controllo della versione saltato."
+            exit 0
+          fi
+          TAG_VERSION="${REF_NAME#v}"
+          PACKAGE_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+            echo "::error::Il tag $REF_NAME non corrisponde alla versione di apps/desktop/package.json ($PACKAGE_VERSION). Allinea la versione prima di taggare."
+            exit 1
+          fi
+          echo "Versione verificata: $PACKAGE_VERSION"
+
   build:
+    needs: version-check
     strategy:
       fail-fast: false
       matrix:
@@ -76,10 +101,13 @@ jobs:
             apps/desktop/release/latest*.yml
           if-no-files-found: error
 
+  # Unico job con permesso di scrittura: serve solo a creare la Release.
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
