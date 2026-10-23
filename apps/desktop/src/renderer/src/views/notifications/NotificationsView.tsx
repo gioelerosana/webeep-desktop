@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import type { MoodleNotification } from '@webeep/moodle-api';
 import { PageHeader, Page } from '../../layout/Page';
 import { useNotifications } from '../../lib/queries';
+import { MarkAllReadButton } from './MarkAllReadButton';
 import { NotificationRow } from './NotificationRow';
 
 type NotificationFilter = 'all' | 'unread';
@@ -76,23 +77,26 @@ export const NotificationsView = (): ReactNode => {
         title="Notifiche"
         description={page ? describeCount(page.unreadcount) : undefined}
         actions={
-          <div role="group" aria-label="Filtra notifiche" className="flex items-center gap-1">
-            {FILTER_OPTIONS.map((option) => {
-              const active = option.value === filter;
-              return (
-                <Button
-                  key={option.value}
-                  variant={active ? 'secondary' : 'ghost-muted'}
-                  size="sm"
-                  aria-pressed={active}
-                  className={active ? 'border-input' : undefined}
-                  onClick={() => setFilter(option.value)}
-                >
-                  {option.label}
-                </Button>
-              );
-            })}
-          </div>
+          <>
+            <MarkAllReadButton unreadCount={page?.unreadcount ?? 0} />
+            <div role="group" aria-label="Filtra notifiche" className="flex items-center gap-1">
+              {FILTER_OPTIONS.map((option) => {
+                const active = option.value === filter;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={active ? 'secondary' : 'ghost-muted'}
+                    size="sm"
+                    aria-pressed={active}
+                    className={active ? 'border-input' : undefined}
+                    onClick={() => setFilter(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </>
         }
       />
 

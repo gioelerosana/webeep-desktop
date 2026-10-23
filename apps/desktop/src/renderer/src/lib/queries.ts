@@ -154,6 +154,15 @@ export const useMarkNotificationRead = (): UseMutationResult<null, Error, number
   });
 };
 
+/** Invalida l'elenco: il contatore dei non letti (sidebar, intestazione) arriva con lo stesso dato. */
+export const useMarkAllNotificationsRead = (): UseMutationResult<null, Error, void> => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => invoke('moodle:mark-all-notifications-read'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+  });
+};
+
 export const useOpenFile = (): UseMutationResult<null, Error, FileRequest> =>
   useMutation({ mutationFn: (file: FileRequest) => invoke('files:open', file) });
 
