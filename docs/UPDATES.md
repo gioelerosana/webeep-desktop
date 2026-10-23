@@ -66,11 +66,14 @@ anche la stringa nello script e lo stesso glob.
    electron-builder mette nei nomi dei file e in `latest*.yml`, ed è quello che il workflow
    verifica. Alza anche `version` nel `package.json` della radice, così restano uguali.
 2. Porta la modifica su `main` con il flusso del repo.
-3. Crea il tag con lo stesso numero, `vX.Y.Z`, e fai il push del tag:
+3. Crea il tag con lo stesso numero, `vX.Y.Z`, sul commit di `main`, e fai il push del tag:
    `git tag vX.Y.Z && git push origin vX.Y.Z`. Il push del tag avvia
    `.github/workflows/release.yml`.
 4. Il job `version-check` confronta il tag con `apps/desktop/package.json`. Se non
    coincidono, il workflow si ferma prima della build: nessun artefatto, nessuna Release.
+   Lo stesso job verifica che il commit del tag sia contenuto in `main`: un tag su un
+   commit che non è in `main` si ferma con l'errore «il tag deve puntare a un commit già
+   unito in main».
 5. Il workflow builda l'AppImage (con update information e `.zsync`) e l'installer
    Windows, poi crea la Release con: `*.AppImage`, `*.AppImage.zsync`, `*.exe`,
    `*.exe.blockmap`, `latest*.yml`.
@@ -83,6 +86,17 @@ Su dispatch il controllo di versione è saltato.
 **Permessi del workflow.** Il workflow ha `contents: read` a livello generale. Solo il job
 `release`, che crea la Release, ha `contents: write`. Il build e il controllo di versione
 girano con i permessi minimi.
+
+**Azioni fissate a hash.** Ogni `uses:` di un'azione di terze parti punta a un commit
+completo di 40 caratteri, con la versione in commento (`# v4.4.0`). Un tag come `v4` può
+essere spostato da chi mantiene l'azione, un commit no. Per aggiornare un'azione si
+risolve il nuovo tag, si sostituisce l'hash e si aggiorna il commento con la stessa versione.
+
+**Protezione dei tag.** I tag `v*` sono protetti da una regola del repository: si possono
+creare solo da un admin e non si possono né spostare né cancellare, così il tag che il
+workflow costruisce resta quello pubblicato. La regola va creata dopo il merge su `main`
+(impostazioni del repository, Rules, ruleset sul target tag `v*`): fino ad allora la
+protezione non è attiva.
 
 Non caricare file a mano: senza `.zsync` il manager zsync non trova l'aggiornamento, e
 senza `latest*.yml` l'app non vede la versione nuova.
