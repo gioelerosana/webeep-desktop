@@ -2,7 +2,7 @@
  * Navigazione interna: una union discriminata di rotte in un context.
  * Niente router esterno: le viste sono poche e lo stato è tutto locale.
  * Per aggiungere una vista: nuova variante di `Route`, poi un case in
- * `AppContent` (App.tsx); il `switch` esaustivo segnala i casi mancanti.
+ * `AppContent` (App.tsx); il controllo finale con `assertNever` segnala i casi mancanti.
  */
 import { createContext, use, useMemo, useState, type ReactNode } from 'react';
 

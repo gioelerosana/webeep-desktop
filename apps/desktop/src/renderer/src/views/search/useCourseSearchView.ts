@@ -39,6 +39,18 @@ const searchPhaseOf = ({ searchable, hasData, isError, total }: PhaseInput): Sea
   return 'results';
 };
 
+/*
+ * Due pagine possono ripetere lo stesso corso (la lista cambia mentre si scorre):
+ * una riga per corso, con la prima occorrenza che vince.
+ */
+const uniqueCoursesById = (courses: readonly CourseSearchHit[]): readonly CourseSearchHit[] => {
+  const firstById = courses.reduce(
+    (byId, course) => (byId.has(course.id) ? byId : byId.set(course.id, course)),
+    new Map<number, CourseSearchHit>(),
+  );
+  return [...firstById.values()];
+};
+
 /** Stato della ricerca: testo digitato, query con debounce, pagine e fase da mostrare. */
 export const useCourseSearchView = (): CourseSearchView => {
   const [text, setText] = useState('');
@@ -46,7 +58,7 @@ export const useCourseSearchView = (): CourseSearchView => {
   const search = useCourseSearch(debouncedText);
 
   const pages = search.data?.pages;
-  const courses = useMemo(() => (pages ?? []).flatMap((page) => page.courses), [pages]);
+  const courses = useMemo(() => uniqueCoursesById((pages ?? []).flatMap((page) => page.courses)), [pages]);
   const total = pages?.[0]?.total ?? 0;
   const phase = searchPhaseOf({
     searchable: debouncedText.trim().length >= COURSE_SEARCH_MIN_QUERY_LENGTH,

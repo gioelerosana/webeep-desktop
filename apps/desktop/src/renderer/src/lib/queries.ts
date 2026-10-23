@@ -91,17 +91,36 @@ export const useCoursePage = (courseId: number, moduleId: number): UseQueryResul
     queryFn: () => invoke('course:page', { courseId, moduleId }),
   });
 
-/** Corso trovato nella ricerca. `enrolled` dice se è tra i corsi a cui l'utente è iscritto. */
-export type CourseSearchHit = CourseSearchResult & { readonly enrolled: boolean };
+/**
+ * Stato di iscrizione di un corso trovato. `unknown` finché l'elenco dei corsi
+ * iscritti non è arrivato: in quel tempo la riga non sa ancora se aprire o espandere.
+ */
+export type CourseEnrollment = 'enrolled' | 'not-enrolled' | 'unknown';
+
+/** Corso trovato nella ricerca, con il suo stato di iscrizione. */
+export type CourseSearchHit = CourseSearchResult & { readonly enrollment: CourseEnrollment };
 
 export type CourseSearchHitsPage = {
   readonly total: number;
   readonly courses: readonly CourseSearchHit[];
 };
 
-const useEnrolledCourseIds = (): ReadonlySet<number> => {
+/*
+ * Legge lo stato di iscrizione dall'elenco dei corsi. Se l'elenco fallisce senza
+ * dati precedenti, il corso è trattato come non iscritto: la riga si espande e il
+ * dettaglio apre la pagina nel browser, che funziona anche per chi è iscritto.
+ * Si perde solo il badge "Iscritto", senza bloccare la riga.
+ */
+const useEnrollmentOf = (): ((courseId: number) => CourseEnrollment) => {
   const allCourses = useCourses('all');
-  return useMemo(() => new Set((allCourses.data ?? []).map((course) => course.id)), [allCourses.data]);
+  const enrolledIds = useMemo(() => new Set((allCourses.data ?? []).map((course) => course.id)), [allCourses.data]);
+  return useCallback(
+    (courseId: number): CourseEnrollment => {
+      if (allCourses.data) return enrolledIds.has(courseId) ? 'enrolled' : 'not-enrolled';
+      return allCourses.isError ? 'not-enrolled' : 'unknown';
+    },
+    [allCourses.data, allCourses.isError, enrolledIds],
+  );
 };
 
 const isSearchableQuery = (query: string): boolean =>
@@ -110,21 +129,21 @@ const isSearchableQuery = (query: string): boolean =>
 /**
  * Ricerca nel catalogo, a pagine (il main ne decide la dimensione). Il testo è
  * pulito con `trim` e la query parte solo se la lunghezza è valida: il debounce
- * sta nella vista, non qui. I risultati sono arricchiti con `enrolled` quando
- * arriva l'elenco dei corsi iscritti.
+ * sta nella vista, non qui. I risultati sono arricchiti con `enrollment`; finché
+ * l'elenco dei corsi iscritti non arriva, lo stato è `unknown`.
  */
 export const useCourseSearch = (query: string): UseInfiniteQueryResult<InfiniteData<CourseSearchHitsPage>, Error> => {
   const normalizedQuery = query.trim();
-  const enrolledIds = useEnrolledCourseIds();
-  const markEnrolled = useCallback(
+  const enrollmentOf = useEnrollmentOf();
+  const markEnrollment = useCallback(
     (data: InfiniteData<CourseSearchPage>): InfiniteData<CourseSearchHitsPage> => ({
       pageParams: data.pageParams,
       pages: data.pages.map((page) => ({
         total: page.total,
-        courses: page.courses.map((course) => ({ ...course, enrolled: enrolledIds.has(course.id) })),
+        courses: page.courses.map((course) => ({ ...course, enrollment: enrollmentOf(course.id) })),
       })),
     }),
-    [enrolledIds],
+    [enrollmentOf],
   );
   return useInfiniteQuery({
     queryKey: queryKeys.courseSearch(normalizedQuery),
@@ -135,7 +154,7 @@ export const useCourseSearch = (query: string): UseInfiniteQueryResult<InfiniteD
       const loadedCount = allPages.reduce((count, page) => count + page.courses.length, 0);
       return lastPage.courses.length > 0 && loadedCount < lastPage.total ? allPages.length : undefined;
     },
-    select: markEnrolled,
+    select: markEnrollment,
     enabled: isSearchableQuery(normalizedQuery),
   });
 };
