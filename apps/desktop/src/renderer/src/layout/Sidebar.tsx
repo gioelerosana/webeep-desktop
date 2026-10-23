@@ -6,11 +6,12 @@ import { useNotifications } from '../lib/queries';
 import { SidebarCourseList } from './SidebarCourseList';
 import { SidebarFooter } from './SidebarFooter';
 import { SidebarItem } from './SidebarItem';
+import { SidebarPastCourses } from './SidebarPastCourses';
 import { useSidebarCourses } from './useSidebarCourses';
 
 const APP_NAME = 'WeBeep';
 
-/** Sidebar a sinistra: ricerca, navigazione, corsi in corso e utente. */
+/** Sidebar a sinistra: ricerca, navigazione, corsi in corso, anni precedenti e utente. */
 export const Sidebar = (): ReactNode => {
   const { route, navigate } = useNavigation();
   const { query, setQuery, result, visibleCourses } = useSidebarCourses();
@@ -23,8 +24,8 @@ export const Sidebar = (): ReactNode => {
         <p className="px-1 text-sm font-semibold text-foreground">{APP_NAME}</p>
         <Input
           type="search"
-          aria-label="Cerca corsi"
-          placeholder="Cerca corsi"
+          aria-label="Filtra i tuoi corsi"
+          placeholder="Filtra i tuoi corsi"
           leading={<Search />}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -38,6 +39,12 @@ export const Sidebar = (): ReactNode => {
           icon={<House />}
           active={route.name === 'home'}
           onSelect={() => navigate({ name: 'home' })}
+        />
+        <SidebarItem
+          label="Cerca corsi"
+          icon={<Search />}
+          active={route.name === 'search'}
+          onSelect={() => navigate({ name: 'search' })}
         />
         <SidebarItem
           label="Notifiche"
@@ -54,6 +61,11 @@ export const Sidebar = (): ReactNode => {
           result={result}
           visibleCourses={visibleCourses}
           isSearching={query.trim() !== ''}
+          activeCourseId={activeCourseId}
+          onSelect={(courseId) => navigate({ name: 'course', courseId })}
+        />
+        <SidebarPastCourses
+          query={query}
           activeCourseId={activeCourseId}
           onSelect={(courseId) => navigate({ name: 'course', courseId })}
         />
