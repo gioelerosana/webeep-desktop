@@ -92,11 +92,11 @@ completo di 40 caratteri, con la versione in commento (`# v4.4.0`). Un tag come 
 essere spostato da chi mantiene l'azione, un commit no. Per aggiornare un'azione si
 risolve il nuovo tag, si sostituisce l'hash e si aggiorna il commento con la stessa versione.
 
-**Protezione dei tag.** I tag `v*` sono protetti da una regola del repository: si possono
-creare solo da un admin e non si possono né spostare né cancellare, così il tag che il
-workflow costruisce resta quello pubblicato. La regola va creata dopo il merge su `main`
-(impostazioni del repository, Rules, ruleset sul target tag `v*`): fino ad allora la
-protezione non è attiva.
+**Protezione dei tag.** I tag `v*` sono già protetti da due ruleset del repository: la
+creazione è riservata agli admin, e il tag non si può né spostare né cancellare, nemmeno
+dall'admin. Per correggere un tag sbagliato bisogna disattivare temporaneamente il ruleset
+«tag di rilascio: immutabili» da Settings → Rules. Il tag va creato dopo il merge della PR,
+sul commit di `main`: `git tag vX.Y.Z <commit di main> && git push origin vX.Y.Z`.
 
 Non caricare file a mano: senza `.zsync` il manager zsync non trova l'aggiornamento, e
 senza `latest*.yml` l'app non vede la versione nuova.
