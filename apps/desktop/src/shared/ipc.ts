@@ -128,6 +128,31 @@ export type UpdateState = UpdateBase &
 /** Tipo di segnalazione: `bug` per un problema, `feature` per una proposta. */
 export type FeedbackKind = 'bug' | 'feature';
 
+/** Tipi di crash salvabili dal main. Unione chiusa: il main la usa anche per validare il file salvato. */
+export const CRASH_KINDS = [
+  'main-exception',
+  'unhandled-rejection',
+  'renderer-gone',
+  'child-process-gone',
+  'renderer-error',
+] as const;
+export type CrashKind = (typeof CRASH_KINDS)[number];
+
+/** Ciò che il renderer vede di un crash in attesa: niente stack, niente percorsi. */
+export type CrashReportSummary = {
+  readonly kind: CrashKind;
+  /** Istante ISO 8601 del crash. */
+  readonly occurredAt: string;
+  /** Messaggio già ripulito dal main (token, parametri di query e home oscurati). */
+  readonly message: string;
+};
+
+/** Errore segnalato dal renderer (per esempio da un error boundary): input non fidato, validato nel main. */
+export type CrashRendererErrorReport = {
+  readonly message: string;
+  readonly stack?: string;
+};
+
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
   /** Apre la finestra di login Polimi; si risolve a login finito o annullato. */
@@ -172,6 +197,15 @@ export type IpcContract = {
 
   /** Apre nel browser il modulo GitHub di segnalazione. Il main costruisce l'URL: il renderer passa solo il tipo. */
   'feedback:open': { readonly args: [kind: FeedbackKind]; readonly result: null };
+
+  /** Crash salvato e non ancora segnalato, oppure `null`. Non include lo stack. */
+  'crash:get-pending': { readonly args: []; readonly result: CrashReportSummary | null };
+  /** Apre nel browser un'issue precompilata con il crash e cancella la segnalazione. Errore `invalid-input` se non c'è nulla da segnalare. */
+  'crash:report': { readonly args: []; readonly result: null };
+  /** Scarta la segnalazione in attesa senza aprire nulla. */
+  'crash:dismiss': { readonly args: []; readonly result: null };
+  /** Salva un errore del renderer come crash in attesa, se non ce n'è già uno. Input validato nel main. */
+  'crash:record-renderer-error': { readonly args: [report: CrashRendererErrorReport]; readonly result: null };
 
   /** Controlli della barra del titolo disegnata dall'app (finestra senza cornice nativa). */
   'window:minimize': { readonly args: []; readonly result: null };
@@ -222,6 +256,11 @@ export const WEB_UNAVAILABLE_CHANNELS = [
   'shell:open-external',
   // Segnalazioni: aprono il browser di chi usa il desktop, come `shell:open-external`.
   'feedback:open',
+  // Crash: la segnalazione in attesa è quella dell'installazione desktop, e l'invio apre il browser di chi la usa.
+  'crash:get-pending',
+  'crash:report',
+  'crash:dismiss',
+  'crash:record-renderer-error',
   // Aggiornamenti: riguardano l'installazione del desktop che serve la pagina, non il browser.
   'updates:get-state',
   'updates:check',

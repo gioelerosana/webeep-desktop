@@ -6,6 +6,7 @@
  *
  * `?mock=signed-out` nell'URL parte dalla schermata di login.
  * `?update=<scenario>` sceglie lo stato iniziale dell'aggiornamento (`idle` se manca).
+ * `?mock=crash` parte con una segnalazione di crash in attesa.
  */
 import type {
   CalendarEvent,
@@ -21,6 +22,7 @@ import {
   type AuthState,
   type CoursePage,
   type CoursePageFile,
+  type CrashReportSummary,
   type FeedbackKind,
   type IpcContract,
   type IpcErrorKind,
@@ -61,6 +63,11 @@ const MOCK_FEEDBACK_TEMPLATE: Record<FeedbackKind, string> = {
   feature: 'feature_request.yml',
 };
 const MOCK_SYSTEM_DESCRIPTION = 'linux (x64), Electron di prova';
+const MOCK_CRASH_PARAM_VALUE = 'crash';
+const MOCK_CRASH_HOURS_AGO = 2;
+const MOCK_CRASH_MESSAGE = 'il processo del renderer si è chiuso (crashed, codice 139)';
+const MOCK_NEW_CRASH_ISSUE_TEMPLATE = 'crash_report.yml';
+const NO_PENDING_CRASH_MESSAGE = 'nessuna segnalazione di crash da inviare';
 
 const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
 const { user } = fixtures;
@@ -200,6 +207,15 @@ let auth: AuthState =
     ? { status: 'signed-out' }
     : { status: 'signed-in', user };
 let settings: Settings = { downloadDir: '/home/giulia/Scaricati/WeBeep', theme: 'system' };
+/* Come il main: al più una segnalazione in attesa. Con `?mock=crash` ne parte una, da inviare o ignorare. */
+let pendingCrash: CrashReportSummary | null =
+  new URLSearchParams(window.location.search).get('mock') === MOCK_CRASH_PARAM_VALUE
+    ? {
+        kind: 'renderer-gone',
+        occurredAt: new Date(Date.now() - MOCK_CRASH_HOURS_AGO * HOUR_S * SECONDS_PER_MS).toISOString(),
+        message: MOCK_CRASH_MESSAGE,
+      }
+    : null;
 
 /** Scenari dell'aggiornamento per `?update=`: ognuno mostra uno stato diverso dell'interfaccia. */
 type MockUpdateScenario =
@@ -363,6 +379,23 @@ const handlers: MockHandlers = {
       params.set('os', MOCK_SYSTEM_DESCRIPTION);
     }
     window.open(`${MOCK_NEW_ISSUE_URL}?${params.toString()}`, '_blank', 'noopener');
+    return null;
+  },
+  'crash:get-pending': () => pendingCrash,
+  // Come il main: l'issue si apre nel browser e poi la segnalazione in attesa sparisce.
+  'crash:report': () => {
+    if (!pendingCrash) throw new MockIpcFailure('invalid-input', NO_PENDING_CRASH_MESSAGE);
+    const params = new URLSearchParams({ template: MOCK_NEW_CRASH_ISSUE_TEMPLATE });
+    window.open(`${MOCK_NEW_ISSUE_URL}?${params.toString()}`, '_blank', 'noopener');
+    pendingCrash = null;
+    return null;
+  },
+  'crash:dismiss': () => {
+    pendingCrash = null;
+    return null;
+  },
+  'crash:record-renderer-error': (report) => {
+    pendingCrash ??= { kind: 'renderer-error', occurredAt: new Date().toISOString(), message: report.message };
     return null;
   },
   'window:minimize': () => null,

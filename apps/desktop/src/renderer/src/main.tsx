@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { CrashBoundary } from './components/crash/CrashBoundary';
+import { installRendererErrorListeners } from './components/crash/installRendererErrorListeners';
 import { installHttpBridgeIfNeeded } from './lib/http-bridge';
 import { isIpcError } from './lib/ipc';
 import './styles.css';
@@ -29,13 +31,18 @@ if (import.meta.env.DEV) {
   installHttpBridgeIfNeeded();
 }
 
+// Dopo il bridge: il listener chiama `window.webeep`. Nel browser non registra nulla.
+installRendererErrorListeners();
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Elemento #root mancante in index.html');
 
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <CrashBoundary>
+        <App />
+      </CrashBoundary>
     </QueryClientProvider>
   </StrictMode>,
 );

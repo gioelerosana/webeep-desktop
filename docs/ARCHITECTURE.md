@@ -82,7 +82,8 @@ dei canali IPC, senza una finestra nel contesto.
 `WEB_UNAVAILABLE_CHANNELS` (`shared/ipc.ts`): `auth:login`, `auth:logout`,
 `files:download`, `files:open`, `files:reveal`, `settings:update`,
 `settings:choose-download-dir`, `shell:open-external`, `feedback:open` (apre il
-modulo GitHub di segnalazione) e i `window:*`. Ognuno
+modulo GitHub di segnalazione), i `crash:*` (la segnalazione in attesa è quella
+del desktop) e i `window:*`. Ognuno
 agirebbe sul computer che serve la pagina (sessione, file, browser, impostazioni,
 finestra) o non avrebbe una finestra a cui riferirsi; la risposta è
 `invalid-input` e non succede nulla. `window.webeep.kind` dice dove gira
@@ -127,6 +128,27 @@ spinti dal server.
 In `pnpm dev:web` il renderer gira nel browser e `main.tsx` installa il bridge
 finto (`lib/mock-bridge.ts`, dati in `lib/mock-fixtures.json`) con la stessa
 forma di `WebeepBridge`. Il bridge finto non esiste nella build di produzione.
+Con `?mock=crash` parte con una segnalazione di crash in attesa, da inviare o ignorare.
+
+## Segnalazione dei crash
+
+Il main raccoglie i crash in `userData/crash-reports/pending.json`: solo l'ultimo,
+scritto in modo atomico (`.part` e poi rinomina). Le fonti sono `uncaughtException`
+e `unhandledRejection` del main, `render-process-gone` e `child-process-gone`
+(`main/crash-report.ts`, installato per primo in `main/index.ts`), più gli errori
+del renderer: i listener `error` e `unhandledrejection` e un error boundary in
+`main.tsx`, che li inviano con `crash:record-renderer-error`
+(`components/crash/`). Il renderer registra al più un errore per sessione.
+
+Prima di salvare, ogni testo passa da `sanitizeCrashText`: oscura token e parametri
+di query, e sostituisce il percorso della home. L'interfaccia riceve solo tipo, data
+e messaggio (`crash:get-pending`), mai lo stack. Al prossimo avvio il banner in cima
+all'app propone di segnalare o ignorare.
+
+L'invio non è automatico: non c'è un token GitHub né un server intermedio (AGENTS.md).
+`crash:report` apre nel browser un'issue precompilata con il template
+`crash_report.yml`, poi cancella la segnalazione in attesa. La invia l'utente.
+Se l'apertura fallisce, il crash resta in attesa.
 
 ## Aggiornamenti
 

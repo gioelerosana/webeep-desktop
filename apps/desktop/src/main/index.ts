@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import appIcon from '../../resources/icon.png?asset';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
+import { installCrashReporting } from './crash-report.js';
 import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
 import { registerIpcHandlers } from './handlers.js';
 import { startUpdater } from './updater.js';
@@ -26,6 +27,8 @@ const SINGLE_INSTANCE_MESSAGE =
 const WINDOW_CHROME: BrowserWindowConstructorOptions =
   process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : { frame: false };
 
+// Prima di tutto il resto: un crash durante l'avvio va comunque registrato.
+installCrashReporting();
 registerAssetScheme();
 
 const createMainWindow = (): BrowserWindow => {

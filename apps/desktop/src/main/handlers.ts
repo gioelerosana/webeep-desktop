@@ -35,6 +35,13 @@ import {
 } from '../shared/ipc.js';
 import { getActiveUser, getAuthState, login, logout, NotSignedInError, withClient } from './auth.js';
 import { downloadFile, InvalidFileRequestError, openFile, revealFile } from './files.js';
+import {
+  dismissPendingCrash,
+  getPendingCrashSummary,
+  InvalidCrashReportError,
+  recordRendererError,
+  reportPendingCrash,
+} from './crash-report.js';
 import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
@@ -103,6 +110,7 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof UpdateNotReadyError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidFeedbackRequestError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidCrashReportError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
 };
@@ -180,6 +188,20 @@ const handlers: Handlers = {
 
   'feedback:open': async (_context, kind) => {
     await openFeedbackIssue(kind);
+    return null;
+  },
+
+  'crash:get-pending': async () => getPendingCrashSummary(),
+  'crash:report': async () => {
+    await reportPendingCrash();
+    return null;
+  },
+  'crash:dismiss': async () => {
+    dismissPendingCrash();
+    return null;
+  },
+  'crash:record-renderer-error': async (_context, report) => {
+    recordRendererError(report);
     return null;
   },
 
