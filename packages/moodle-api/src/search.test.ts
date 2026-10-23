@@ -4,6 +4,8 @@ import { searchCourses } from './endpoints.js';
 import { MoodleResponseShapeError } from './errors.js';
 import searchFixture from './__fixtures__/course-search.json';
 import searchMinimalFixture from './__fixtures__/course-search-minimal.json';
+import searchEmptyFixture from './__fixtures__/course-search-empty.json';
+import searchNullNamesFixture from './__fixtures__/course-search-null-names.json';
 
 const SITE_URL = 'https://webeep.polimi.it';
 const TOKEN = 'token-di-prova';
@@ -17,6 +19,9 @@ const SECOND_COURSE_ID = 205;
 const SAMPLE_TOTAL = 27;
 const MINIMAL_COURSE_ID = 301;
 const MINIMAL_CATEGORY_ID = 9;
+const EMPTY_TOTAL = 0;
+const NULL_NAMES_COURSE_ID = 401;
+const NULL_NAMES_CATEGORY_ID = 9;
 
 type RecordedRequest = { readonly url: string; readonly init: RequestInit };
 
@@ -92,5 +97,26 @@ describe('searchCourses', () => {
     const { client } = clientWith({ total: 1, courses: [{ id: 1, fullname: 'Senza categoria', shortname: 'SC' }] });
 
     await expect(searchCourses(client, { query: QUERY, page: 0, perPage: PER_PAGE })).rejects.toThrow(MoodleResponseShapeError);
+  });
+
+  it('accetta una ricerca senza risultati come pagina vuota', async () => {
+    const { client } = clientWith(searchEmptyFixture);
+
+    const page = await searchCourses(client, { query: QUERY, page: 0, perPage: PER_PAGE });
+
+    expect(page.total).toBe(EMPTY_TOTAL);
+    expect(page.courses).toEqual([]);
+  });
+
+  it('normalizza displayname e categoryname a null come assenti', async () => {
+    const { client } = clientWith(searchNullNamesFixture);
+
+    const page = await searchCourses(client, { query: QUERY, page: 0, perPage: PER_PAGE });
+
+    const [course] = page.courses;
+    expect(course?.id).toBe(NULL_NAMES_COURSE_ID);
+    expect(course?.categoryid).toBe(NULL_NAMES_CATEGORY_ID);
+    expect(course?.displayname).toBeUndefined();
+    expect(course?.categoryname).toBeUndefined();
   });
 });
