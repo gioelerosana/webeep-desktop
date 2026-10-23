@@ -19,6 +19,7 @@
     "dist:linux": "electron-vite build && electron-builder --linux AppImage --x64 --publish never"
   },
   "dependencies": {
+    "electron-updater": "6.8.11",
     "zod": "4.6.5"
   },
   "devDependencies": {

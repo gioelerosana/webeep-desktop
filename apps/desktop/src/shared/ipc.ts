@@ -90,6 +90,41 @@ export type CourseSearchRequest = {
   readonly page: number;
 };
 
+/**
+ * Come si aggiorna l'app. `windows`: electron-updater scarica e installa (NSIS).
+ * `linux`: l'AppImage si aggiorna con i manager zsync esterni, quindi l'app solo avvisa.
+ * `other`: sviluppo o piattaforma non supportata.
+ */
+export type UpdatePlatform = 'windows' | 'linux' | 'other';
+
+/** `install`: l'app scarica e installa la nuova versione. `manual`: l'app rimanda alla pagina della release. */
+export type UpdateMode = 'install' | 'manual';
+
+/** Campi presenti in ogni stato dell'aggiornamento: l'interfaccia li mostra sempre, senza leggerli dal main a parte. */
+type UpdateBase = {
+  /** Versione in esecuzione, da `package.json`. */
+  readonly currentVersion: string;
+  readonly platform: UpdatePlatform;
+};
+
+/**
+ * Stato del controllo aggiornamenti, unione discriminata su `status`.
+ * - `unsupported`: sviluppo, `dev:web`, modalità web o piattaforma non supportata.
+ * - `lastCheckedAt`: istante ISO 8601 dell'ultimo controllo concluso.
+ * - `percent`: avanzamento del download, da 0 a 100.
+ * - `message`: testo in italiano per l'utente, senza URL, token o percorsi.
+ */
+export type UpdateState = UpdateBase &
+  (
+    | { readonly status: 'unsupported' }
+    | { readonly status: 'idle'; readonly lastCheckedAt?: string }
+    | { readonly status: 'checking' }
+    | { readonly status: 'available'; readonly version: string; readonly mode: UpdateMode }
+    | { readonly status: 'downloading'; readonly version: string; readonly percent: number }
+    | { readonly status: 'ready'; readonly version: string }
+    | { readonly status: 'error'; readonly message: string }
+  );
+
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
   /** Apre la finestra di login Polimi; si risolve a login finito o annullato. */
@@ -123,6 +158,15 @@ export type IpcContract = {
   /** Dialogo nativo per scegliere la cartella dei download; `null` se annullato. */
   'settings:choose-download-dir': { readonly args: []; readonly result: string | null };
 
+  /** Stato corrente del controllo aggiornamenti. Solo desktop: nel browser è `invalid-input`. */
+  'updates:get-state': { readonly args: []; readonly result: UpdateState };
+  /** Avvia un controllo; restituisce subito lo stato `checking`, l'esito arriva con `updates:state-changed`. */
+  'updates:check': { readonly args: []; readonly result: UpdateState };
+  /** Riavvia e installa l'aggiornamento scaricato. Errore `invalid-input` se lo stato non è `ready`. */
+  'updates:install': { readonly args: []; readonly result: null };
+  /** Apre nel browser la pagina della release. Il main costruisce l'URL dalla versione: il renderer non passa URL. */
+  'updates:open-release': { readonly args: []; readonly result: null };
+
   /** Controlli della barra del titolo disegnata dall'app (finestra senza cornice nativa). */
   'window:minimize': { readonly args: []; readonly result: null };
   'window:toggle-maximize': { readonly args: []; readonly result: null };
@@ -150,6 +194,8 @@ export type IpcEvents = {
   'auth:changed': AuthState;
   /** La finestra principale è stata massimizzata (`true`) o ripristinata (`false`). */
   'window:maximized-changed': boolean;
+  /** Ogni cambio di stato dell'aggiornamento: avvio di un controllo, download, fine, errore. */
+  'updates:state-changed': UpdateState;
 };
 export type IpcEventName = keyof IpcEvents;
 
@@ -168,6 +214,11 @@ export const WEB_UNAVAILABLE_CHANNELS = [
   'settings:update',
   'settings:choose-download-dir',
   'shell:open-external',
+  // Aggiornamenti: riguardano l'installazione del desktop che serve la pagina, non il browser.
+  'updates:get-state',
+  'updates:check',
+  'updates:install',
+  'updates:open-release',
   'window:minimize',
   'window:toggle-maximize',
   'window:close',

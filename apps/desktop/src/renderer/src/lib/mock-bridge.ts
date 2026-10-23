@@ -5,6 +5,7 @@
  * trasformano nelle forme di Moodle, con date relative a "adesso".
  *
  * `?mock=signed-out` nell'URL parte dalla schermata di login.
+ * `?update=<scenario>` sceglie lo stato iniziale dell'aggiornamento (`idle` se manca).
  */
 import type {
   CalendarEvent,
@@ -26,6 +27,8 @@ import {
   type IpcEvents,
   type IpcResult,
   type Settings,
+  type UpdatePlatform,
+  type UpdateState,
   type WebeepBridge,
 } from '../../../shared/ipc';
 import fixtures from './mock-fixtures.json';
@@ -43,6 +46,14 @@ const PAGE_NOT_FOUND_MESSAGE = 'Pagina non trovata in questo corso';
 const SEARCH_ERROR_QUERY = 'errore';
 const SEARCH_ERROR_MESSAGE = 'Ricerca non disponibile (errore simulato)';
 const SEARCH_LOCALE = 'it-IT';
+const UPDATE_PARAM = 'update';
+const UPDATE_CHECK_DELAY_MS = 1_500;
+const MOCK_CURRENT_VERSION = '0.0.1';
+const MOCK_NEW_VERSION = '0.0.2';
+const MOCK_DOWNLOAD_PERCENT = 40;
+const MOCK_RELEASES_URL = 'https://github.com/gioelerosana/webeep-desktop/releases';
+const UPDATE_CHECK_ERROR_MESSAGE = 'Controllo degli aggiornamenti non riuscito (errore simulato)';
+const UPDATE_NOT_READY_MESSAGE = 'Nessun aggiornamento pronto da installare';
 
 const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
 const { user } = fixtures;
@@ -183,15 +194,93 @@ let auth: AuthState =
     : { status: 'signed-in', user };
 let settings: Settings = { downloadDir: '/home/giulia/Scaricati/WeBeep', theme: 'system' };
 
+/** Scenari dell'aggiornamento per `?update=`: ognuno mostra uno stato diverso dell'interfaccia. */
+type MockUpdateScenario =
+  | 'unsupported'
+  | 'idle'
+  | 'available-win'
+  | 'available-linux'
+  | 'downloading'
+  | 'ready'
+  | 'error';
+const MOCK_UPDATE_SCENARIOS: readonly MockUpdateScenario[] = [
+  'unsupported',
+  'idle',
+  'available-win',
+  'available-linux',
+  'downloading',
+  'ready',
+  'error',
+];
+const MOCK_UPDATE_STATES: Record<MockUpdateScenario, UpdateState> = {
+  unsupported: { currentVersion: MOCK_CURRENT_VERSION, platform: 'other', status: 'unsupported' },
+  idle: { currentVersion: MOCK_CURRENT_VERSION, platform: 'linux', status: 'idle' },
+  'available-win': {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'windows',
+    status: 'available',
+    version: MOCK_NEW_VERSION,
+    mode: 'install',
+  },
+  'available-linux': {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'linux',
+    status: 'available',
+    version: MOCK_NEW_VERSION,
+    mode: 'manual',
+  },
+  downloading: {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'windows',
+    status: 'downloading',
+    version: MOCK_NEW_VERSION,
+    percent: MOCK_DOWNLOAD_PERCENT,
+  },
+  ready: { currentVersion: MOCK_CURRENT_VERSION, platform: 'windows', status: 'ready', version: MOCK_NEW_VERSION },
+  error: {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'linux',
+    status: 'error',
+    message: UPDATE_CHECK_ERROR_MESSAGE,
+  },
+};
+const requestedUpdateScenario = new URLSearchParams(window.location.search).get(UPDATE_PARAM);
+let updateState: UpdateState =
+  MOCK_UPDATE_STATES[MOCK_UPDATE_SCENARIOS.find((scenario) => scenario === requestedUpdateScenario) ?? 'idle'];
+
 // Un insieme di listener per evento: un listener di `window:maximized-changed` non deve ricevere `auth:changed`.
 const listeners: { readonly [TEvent in IpcEventName]: Set<(payload: IpcEvents[TEvent]) => void> } = {
   'auth:changed': new Set(),
   'window:maximized-changed': new Set(),
+  'updates:state-changed': new Set(),
 };
 const setAuth = (next: AuthState): AuthState => {
   auth = next;
   listeners['auth:changed'].forEach((listener) => listener(next));
   return next;
+};
+const setUpdateState = (next: UpdateState): UpdateState => {
+  updateState = next;
+  listeners['updates:state-changed'].forEach((listener) => listener(next));
+  return next;
+};
+
+/** Esito simulato del controllo: su Windows c'è una versione da installare, su Linux solo da segnalare. */
+const updateAvailableAfterCheck = (platform: UpdatePlatform): UpdateState => ({
+  currentVersion: MOCK_CURRENT_VERSION,
+  platform,
+  status: 'available',
+  version: MOCK_NEW_VERSION,
+  mode: platform === 'windows' ? 'install' : 'manual',
+});
+
+/* Stessa regola di `isBusy` nel main: con questi stati un nuovo controllo sarebbe inutile o avvierebbe un secondo download. */
+const BUSY_UPDATE_STATUSES: readonly UpdateState['status'][] = ['checking', 'downloading', 'ready'];
+
+/* `available` è occupato solo su Windows (download in corso o imminente); su Linux è un avviso e si può ricontrollare. */
+const isUpdateBusy = (current: UpdateState): boolean => {
+  if (current.status === 'available') return current.mode === 'install';
+  return BUSY_UPDATE_STATUSES.includes(current.status);
 };
 
 type MockHandlers = {
@@ -241,6 +330,24 @@ const handlers: MockHandlers = {
     return settings;
   },
   'settings:choose-download-dir': () => '/home/giulia/Documenti/Polimi',
+  'updates:get-state': () => updateState,
+  // Come il main: `checking` subito, poi l'esito con `updates:state-changed` dopo un ritardo.
+  'updates:check': () => {
+    if (updateState.status === 'unsupported' || isUpdateBusy(updateState)) return updateState;
+    const { platform } = updateState;
+    setTimeout(() => setUpdateState(updateAvailableAfterCheck(platform)), UPDATE_CHECK_DELAY_MS);
+    return setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'checking' });
+  },
+  // Nel bridge finto non si riavvia nulla: il log basta a vedere che la chiamata è arrivata.
+  'updates:install': () => {
+    if (updateState.status !== 'ready') throw new MockIpcFailure('invalid-input', UPDATE_NOT_READY_MESSAGE);
+    console.info('[webeep] Installazione simulata: nessun riavvio.');
+    return null;
+  },
+  'updates:open-release': () => {
+    window.open(MOCK_RELEASES_URL, '_blank', 'noopener');
+    return null;
+  },
   'window:minimize': () => null,
   'window:toggle-maximize': () => null,
   'window:close': () => null,
