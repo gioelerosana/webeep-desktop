@@ -33,12 +33,21 @@ export const toRendererErrorReport = (value: unknown): CrashRendererErrorReport 
  */
 let recordedThisSession = false;
 
+/* Chi mostra i crash (il banner) si aggiorna solo dopo un invio riuscito: `main.tsx` lo registra con il query client. */
+let onRecorded: (() => void) | null = null;
+
+export const setOnRendererErrorRecorded = (listener: () => void): void => {
+  onRecorded = listener;
+};
+
 const sendReport = async (report: CrashRendererErrorReport): Promise<void> => {
   try {
     await invoke('crash:record-renderer-error', report);
   } catch (error: unknown) {
     console.error("Impossibile registrare l'errore dell'interfaccia:", error);
+    return;
   }
+  onRecorded?.();
 };
 
 /** Registra un errore del renderer come crash in attesa. Nel browser non si fa: il canale non c'è. */

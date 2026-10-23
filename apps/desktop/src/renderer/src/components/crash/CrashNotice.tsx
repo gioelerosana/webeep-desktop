@@ -15,7 +15,7 @@ export const CrashNotice = (): ReactNode => {
   return (
     <section
       role="alert"
-      className="flex flex-col gap-3 border-b bg-[color-mix(in_srgb,var(--error)_var(--tint-strength),transparent)] px-4 py-3 md:flex-row md:items-center"
+      className="flex flex-col gap-3 border-b bg-error/(--tint-strength) px-4 py-3 md:flex-row md:items-center"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-sm font-medium">webeep desktop si è chiuso in modo inatteso</p>
@@ -24,8 +24,8 @@ export const CrashNotice = (): ReactNode => {
         </p>
         <p className="break-words font-mono text-2xs">{crash.pending.message}</p>
         <p className="text-2xs text-muted-foreground">
-          si apre il browser con la segnalazione già compilata: versione, sistema e tipo di errore, senza dati personali né
-          token. la invii tu da github.
+          Il report non contiene il tuo token di accesso e oscura la cartella personale. Si apre il browser: controlla il
+          testo e invialo tu da GitHub.
         </p>
         {crash.actionFailed ? (
           <p className="text-2xs text-error-foreground">impossibile completare l'operazione, riprova</p>

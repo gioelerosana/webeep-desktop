@@ -9,7 +9,7 @@ import type { CrashReportSummary } from '../../../../shared/ipc';
 import { isWebRenderer } from '../../lib/http-bridge';
 import { invoke } from '../../lib/ipc';
 
-const crashReportQueryKey = ['crash-report'] as const;
+export const crashReportQueryKey = ['crash-report'] as const;
 
 export type CrashReportController = {
   /** Crash in attesa, `null` se non c'è nulla da segnalare o da ignorare. */

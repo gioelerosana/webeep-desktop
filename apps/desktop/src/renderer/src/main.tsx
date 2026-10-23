@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { CrashBoundary } from './components/crash/CrashBoundary';
 import { installRendererErrorListeners } from './components/crash/installRendererErrorListeners';
+import { setOnRendererErrorRecorded } from './components/crash/rendererErrors';
+import { crashReportQueryKey } from './components/crash/useCrashReport';
 import { installHttpBridgeIfNeeded } from './lib/http-bridge';
 import { isIpcError } from './lib/ipc';
 import './styles.css';
@@ -20,6 +22,11 @@ const queryClient = new QueryClient({
       retry: (failureCount, error) => !(isIpcError(error) && error.kind === 'auth') && failureCount < MAX_RETRIES,
     },
   },
+});
+
+// Un errore del renderer diventa subito un crash in attesa: il banner deve comparire senza riavviare l'app.
+setOnRendererErrorRecorded(() => {
+  void queryClient.invalidateQueries({ queryKey: crashReportQueryKey });
 });
 
 // Solo in dev e solo nel browser (fuori da Electron): dati finti per lavorare sull'interfaccia.
