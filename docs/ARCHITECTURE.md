@@ -126,3 +126,9 @@ spinti dal server.
 In `pnpm dev:web` il renderer gira nel browser e `main.tsx` installa il bridge
 finto (`lib/mock-bridge.ts`, dati in `lib/mock-fixtures.json`) con la stessa
 forma di `WebeepBridge`. Il bridge finto non esiste nella build di produzione.
+
+## Aggiornamenti
+
+Windows si aggiorna dentro l'app (`electron-updater`). Linux mostra un avviso in app e
+si aggiorna con un manager zsync, grazie alle update information e al `.zsync` che la
+CI aggiunge all'AppImage. Dettagli e procedura di release in [UPDATES.md](UPDATES.md).
