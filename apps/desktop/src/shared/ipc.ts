@@ -101,6 +101,8 @@ export type IpcContract = {
   'moodle:upcoming-events': { readonly args: []; readonly result: readonly CalendarEvent[] };
   'moodle:notifications': { readonly args: []; readonly result: NotificationsPage };
   'moodle:mark-notification-read': { readonly args: [notificationId: number]; readonly result: null };
+  /** Segna come lette tutte le notifiche dell'utente della sessione: nessun argomento dal renderer. */
+  'moodle:mark-all-notifications-read': { readonly args: []; readonly result: null };
   /** Ricerca nel catalogo, anche tra corsi a cui l'utente non è iscritto. Errore `invalid-input` se query o pagina non sono valide. */
   'moodle:searchCourses': { readonly args: [request: CourseSearchRequest]; readonly result: CourseSearchPage };
   /** Pagina `mod_page` di un corso. Errore `invalid-input` se il modulo non è una pagina di quel corso. */

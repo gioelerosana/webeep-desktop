@@ -15,6 +15,7 @@ import {
   getCourses,
   getNotifications,
   getUpcomingEvents,
+  markAllNotificationsRead,
   markNotificationRead,
   MoodleApiError,
   MoodleNetworkError,
@@ -122,6 +123,10 @@ const handlers: Handlers = {
     withClient((client) => getNotifications(client, { userId: getActiveUser().userid })),
   'moodle:mark-notification-read': async (_context, notificationId) => {
     await withClient((client) => markNotificationRead(client, notificationId));
+    return null;
+  },
+  'moodle:mark-all-notifications-read': async () => {
+    await withClient((client) => markAllNotificationsRead(client, getActiveUser().userid));
     return null;
   },
   'moodle:searchCourses': async (_context, request) => {

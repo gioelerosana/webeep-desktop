@@ -218,6 +218,10 @@ const handlers: MockHandlers = {
     notifications = notifications.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
     return null;
   },
+  'moodle:mark-all-notifications-read': () => {
+    notifications = notifications.map((item) => ({ ...item, read: true }));
+    return null;
+  },
   // Un id di modulo che non è una pagina nelle fixture (es. 999) simula l'errore `invalid-input` del main.
   'course:page': ({ moduleId }) => {
     const page = fixtures.pages.find((item) => item.moduleId === moduleId);
