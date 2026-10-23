@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMoodleClient, type FetchLike, type MoodleClient } from './client.js';
+import { MoodleResponseShapeError } from './errors.js';
 import {
   authenticatedFileUrl,
   getCourseContents,
   getCourses,
   getNotifications,
   getUpcomingEvents,
+  markAllNotificationsRead,
   markNotificationRead,
 } from './endpoints.js';
 import actionEventsFixture from './__fixtures__/action-events.json';
@@ -31,6 +33,7 @@ const HTTP_OK = 200;
 const FILE_URL = `${SITE_URL}/pluginfile.php/1/mod_resource/content/1/dispensa.pdf`;
 const DEFAULT_CLASSIFICATION = 'inprogress';
 const PAST_CLASSIFICATION = 'past';
+const MARK_ALL_READ_FUNCTION = 'core_message_mark_all_notifications_as_read';
 
 type RecordedRequest = { readonly url: string; readonly init: RequestInit };
 
@@ -209,6 +212,32 @@ describe('markNotificationRead', () => {
     const form = formOf(requests);
     expect(form.get('notificationid')).toBe(String(NOTIFICATION_ID));
     expect(form.has('timeread')).toBe(true);
+  });
+});
+
+describe('markAllNotificationsRead', () => {
+  it('invia la funzione di Moodle con useridto e senza filtri extra', async () => {
+    const { client, requests } = clientWith(true);
+
+    await markAllNotificationsRead(client, USER_ID);
+
+    const form = formOf(requests);
+    expect(form.get('wsfunction')).toBe(MARK_ALL_READ_FUNCTION);
+    expect(form.get('useridto')).toBe(String(USER_ID));
+    expect(form.has('useridfrom')).toBe(false);
+    expect(form.has('timecreatedto')).toBe(false);
+  });
+
+  it('accetta la conferma true di Moodle', async () => {
+    const { client } = clientWith(true);
+
+    await expect(markAllNotificationsRead(client, USER_ID)).resolves.toBeUndefined();
+  });
+
+  it('una risposta false non è attesa e diventa errore di forma', async () => {
+    const { client } = clientWith(false);
+
+    await expect(markAllNotificationsRead(client, USER_ID)).rejects.toBeInstanceOf(MoodleResponseShapeError);
   });
 });
 

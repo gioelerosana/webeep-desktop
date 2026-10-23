@@ -9,6 +9,7 @@ export {
   getPublicConfig,
   getSiteInfo,
   getUpcomingEvents,
+  markAllNotificationsRead,
   markNotificationRead,
   searchCourses,
   type CourseSearchOptions,

@@ -160,6 +160,9 @@ export const popupNotificationsSchema = z.object({
 });
 export type NotificationsPage = z.infer<typeof popupNotificationsSchema>;
 
+/** Moodle risponde `true` quando ha segnato le notifiche; `false` non è atteso e fa fallire la validazione. */
+export const markAllNotificationsReadSchema = z.literal(true);
+
 export const publicConfigSchema = z.object({
   wwwroot: z.string(),
   sitename: z.string(),

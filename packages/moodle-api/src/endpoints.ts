@@ -12,6 +12,7 @@ import {
   coursesByTimelineSchema,
   pagesByCoursesSchema,
   courseSearchResponseSchema,
+  markAllNotificationsReadSchema,
   popupNotificationsSchema,
   publicConfigSchema,
   siteInfoSchema,
@@ -124,6 +125,15 @@ export const markNotificationRead = async (client: MoodleClient, notificationId:
     { notificationid: notificationId, timeread: nowInSeconds() },
     z.object({ notificationid: z.number() }),
   );
+};
+
+/**
+ * Segna come lette tutte le notifiche ricevute dall'utente. Si lasciano i
+ * default di Moodle (`useridfrom` e `timecreatedto` a 0): nessun filtro per
+ * mittente o per data, quindi vale per tutte.
+ */
+export const markAllNotificationsRead = async (client: MoodleClient, userId: number): Promise<void> => {
+  await client.call('core_message_mark_all_notifications_as_read', { useridto: userId }, markAllNotificationsReadSchema);
 };
 
 /**
