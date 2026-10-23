@@ -3,6 +3,7 @@
  */
 import { app, BrowserWindow, dialog, shell, type BrowserWindowConstructorOptions } from 'electron';
 import { join } from 'node:path';
+import appIcon from '../../resources/icon.png?asset';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
 import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
@@ -33,6 +34,8 @@ const createMainWindow = (): BrowserWindow => {
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
     title: 'WeBeep',
+    // Su Linux, senza `icon`, la finestra mostra l'icona generica di Electron.
+    icon: appIcon,
     show: false,
     autoHideMenuBar: true,
     ...WINDOW_CHROME,
