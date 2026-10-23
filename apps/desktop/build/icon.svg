@@ -1,0 +1,11 @@
+<!-- Logo finale: W ad onda larga a tratto uniforme, punto blu a destra della W alla sua metà in altezza, due archi di segnale concentrici sul punto aperti a destra. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<rect width="1024" height="1024" rx="224" fill="#0a0a0a"/>
+<rect x="2" y="2" width="1020" height="1020" rx="222" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4"/>
+<g transform="translate(512 512) scale(0.878) translate(-576.2 -530)">
+<path d="M200 400 C237.4 400 263.8 660 310 660 C347.4 660 387 510 420 510 C453 510 492.6 660 530 660 C576.2 660 602.6 400 640 400" fill="none" stroke="#ffffff" stroke-width="72" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="712.3" cy="530" r="44" fill="#346bf1"/>
+<path d="M811.9 446.4 A130 130 0 0 1 811.9 613.6" fill="none" stroke="#ffffff" stroke-width="72" stroke-linecap="round"/>
+<path d="M896.2 375.7 A240 240 0 0 1 896.2 684.3" fill="none" stroke="#ffffff" stroke-width="72" stroke-linecap="round"/>
+</g>
+</svg>
