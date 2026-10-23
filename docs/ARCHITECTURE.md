@@ -83,9 +83,11 @@ dei canali IPC, senza una finestra nel contesto.
 `files:download`, `files:open`, `files:reveal`, `settings:update`,
 `settings:choose-download-dir`, `shell:open-external`, `feedback:open` (apre il
 modulo GitHub di segnalazione), i `crash:*` (la segnalazione in attesa è quella
-del desktop) e i `window:*`. Ognuno
+del desktop), gli `updates:*` (`updates:get-state`, `updates:check`,
+`updates:download`, `updates:install`, `updates:open-release`: riguardano
+l'installazione del desktop che serve la pagina) e i `window:*`. Ognuno
 agirebbe sul computer che serve la pagina (sessione, file, browser, impostazioni,
-finestra) o non avrebbe una finestra a cui riferirsi; la risposta è
+aggiornamenti, finestra) o non avrebbe una finestra a cui riferirsi; la risposta è
 `invalid-input` e non succede nulla. `window.webeep.kind` dice dove gira
 l'interfaccia (`electron`, `web`, `mock`).
 
@@ -138,10 +140,15 @@ e `unhandledRejection` del main, `render-process-gone` e `child-process-gone`
 (`main/crash-report.ts`, installato per primo in `main/index.ts`), più gli errori
 del renderer: i listener `error` e `unhandledrejection` e un error boundary in
 `main.tsx`, che li inviano con `crash:record-renderer-error`
-(`components/crash/`). Il renderer registra al più un errore per sessione.
+(`components/crash/`). Il renderer registra al più un errore per sessione. Gli avvisi
+benigni di `ResizeObserver` non sono errori: si scartano prima di registrare, così non
+consumano la registrazione unica. Dopo un invio riuscito il banner si aggiorna subito
+(`setOnRendererErrorRecorded` in `main.tsx`), senza riavviare l'app.
 
 Prima di salvare, ogni testo passa da `sanitizeCrashText`: oscura token e parametri
-di query, e sostituisce il percorso della home. L'interfaccia riceve solo tipo, data
+di query (anche in forma JSON, `"token":"…"`, e `access_token`), e sostituisce il
+percorso della home. I limiti di lunghezza si contano in caratteri, non in unità UTF-16,
+così un'emoji non fa scartare l'errore. L'interfaccia riceve solo tipo, data
 e messaggio (`crash:get-pending`), mai lo stack. Al prossimo avvio il banner in cima
 all'app propone di segnalare o ignorare.
 
@@ -152,6 +159,9 @@ Se l'apertura fallisce, il crash resta in attesa.
 
 ## Aggiornamenti
 
-Windows si aggiorna dentro l'app (`electron-updater`). Linux mostra un avviso in app e
-si aggiorna con un manager zsync, grazie alle update information e al `.zsync` che la
-CI aggiunge all'AppImage. Dettagli e procedura di release in [UPDATES.md](UPDATES.md).
+Windows si aggiorna dentro l'app (`electron-updater`), e solo su richiesta dell'utente:
+"Scarica aggiornamento" avvia `updates:download`, "Riavvia e aggiorna" avvia
+`updates:install`. Nessun download o installazione parte da solo. Linux mostra un avviso
+in app e si aggiorna con un manager zsync, grazie alle update information e al `.zsync`
+che la CI aggiunge all'AppImage. Dettagli, flusso e procedura di release in
+[UPDATES.md](UPDATES.md).

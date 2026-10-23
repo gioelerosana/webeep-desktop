@@ -12,7 +12,9 @@ dell'app ufficiale Moodle Mobile) per mostrare corsi, materiali, scadenze e
 notifiche in un'app nativa, veloce e con i file a portata di mano.
 
 Niente server intermedio, niente telemetria: l'app parla solo con
-`webeep.polimi.it`, con il token dell'utente.
+`webeep.polimi.it`, con il token dell'utente. Due eccezioni, senza dati dell'utente:
+il controllo aggiornamenti legge le release su `github.com`, e le pagine di
+segnalazione di bug e crash su GitHub si aprono nel browser solo su azione dell'utente.
 
 - Stack: monorepo **TypeScript** con **pnpm**:
   - `packages/moodle-api` — client Moodle tipizzato (zod), login SSO. Non
@@ -74,7 +76,8 @@ priorità. Leggilo a inizio sessione, prima di pianificare.
    confermata dell'utente.
 9. **Niente nuove dipendenze senza necessità.** Prima di aggiungerne una,
    chiediti se la piattaforma o una dipendenza esistente bastano. Le aggiunge
-   solo un sotto-agente, con autorizzazione esplicita dell'utente.
+   solo un sotto-agente, con autorizzazione esplicita dell'utente. `electron-updater`
+   è una dipendenza già approvata dall'utente.
 
 ## Stile del codice
 

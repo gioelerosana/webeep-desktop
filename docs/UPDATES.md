@@ -10,13 +10,23 @@ Gli aggiornamenti arrivano dalle GitHub Release di `gioelerosana/webeep-desktop`
   In sviluppo, o fuori da Windows e dall'AppImage, non c'è nessun controllo.
 - Un controllo richiesto a mano è ignorato mentre è in corso, mentre scarica o quando la
   versione è pronta. Da "disponibile" si ricontrolla solo su Linux: lì è un avviso, e una
-  release ancora più nuova può essere uscita nel frattempo. Su Windows "disponibile" vuol
-  dire download in corso o imminente, quindi non si ricontrolla.
+  release ancora più nuova può essere uscita nel frattempo. Su Windows "disponibile"
+  aspetta il clic su "Scarica aggiornamento": non si ricontrolla, così non si perde la
+  versione trovata.
 
 ## Windows (dentro l'app)
 
-- `electron-updater` legge `latest.yml` dalla Release e scarica la nuova versione in
-  background. L'installazione avviene alla chiusura, o subito con "riavvia e aggiorna".
+Né il download né l'installazione partono da soli: `autoDownload` e
+`autoInstallOnAppQuit` sono `false` su tutte le piattaforme aggiornabili. Senza il clic
+dell'utente l'app non si aggiorna, nemmeno alla chiusura.
+
+1. Il controllo periodico legge `latest.yml` dalla Release. Se c'è una versione nuova,
+   stato "disponibile": la sidebar e le Impostazioni mostrano "Scarica aggiornamento".
+2. Il clic chiama `updates:download` e avvia il download. Le Impostazioni mostrano
+   "download della versione X in corso" con l'avanzamento in percentuale.
+3. A download completo lo stato è "pronto". "Riavvia e aggiorna" chiama `updates:install`,
+   chiude l'app e installa la versione scaricata.
+
 - Per i download differenziali serve `WeBeep-Desktop-Setup-<versione>-x64.exe.blockmap`,
   che electron-builder genera accanto all'installer.
 - Senza firma del codice, Windows mostra SmartScreen ("Windows ha protetto il PC") alla
@@ -53,18 +63,26 @@ anche la stringa nello script e lo stesso glob.
 ## Pubblicare una release
 
 1. Alza `version` in `apps/desktop/package.json` (per esempio `0.2.0`). È il numero che
-   electron-builder mette nei nomi dei file e in `latest*.yml`.
+   electron-builder mette nei nomi dei file e in `latest*.yml`, ed è quello che il workflow
+   verifica. Alza anche `version` nel `package.json` della radice, così restano uguali.
 2. Porta la modifica su `main` con il flusso del repo.
 3. Crea il tag con lo stesso numero, `vX.Y.Z`, e fai il push del tag:
    `git tag vX.Y.Z && git push origin vX.Y.Z`. Il push del tag avvia
    `.github/workflows/release.yml`.
-4. Il workflow builda l'AppImage (con update information e `.zsync`) e l'installer
+4. Il job `version-check` confronta il tag con `apps/desktop/package.json`. Se non
+   coincidono, il workflow si ferma prima della build: nessun artefatto, nessuna Release.
+5. Il workflow builda l'AppImage (con update information e `.zsync`) e l'installer
    Windows, poi crea la Release con: `*.AppImage`, `*.AppImage.zsync`, `*.exe`,
    `*.exe.blockmap`, `latest*.yml`.
-5. Controlla la Release: devono esserci tutti e cinque i tipi di file, e `latest-linux.yml`
+6. Controlla la Release: devono esserci tutti e cinque i tipi di file, e `latest-linux.yml`
    deve indicare l'AppImage nuova.
 
 Il dispatch manuale del workflow costruisce solo gli artefatti, senza creare la Release.
+Su dispatch il controllo di versione è saltato.
+
+**Permessi del workflow.** Il workflow ha `contents: read` a livello generale. Solo il job
+`release`, che crea la Release, ha `contents: write`. Il build e il controllo di versione
+girano con i permessi minimi.
 
 Non caricare file a mano: senza `.zsync` il manager zsync non trova l'aggiornamento, e
 senza `latest*.yml` l'app non vede la versione nuova.

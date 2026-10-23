@@ -18,13 +18,20 @@ delle funzioni disponibili:
 | `core_calendar_get_action_events_by_timesort` | `getUpcomingEvents` | scadenze (sequenza temporale) |
 | `message_popup_get_popup_notifications` | `getNotifications` | notifiche |
 | `core_message_mark_notification_read` | `markNotificationRead` | segna una notifica come letta |
-| `core_message_mark_all_notifications_as_read` | `markAllNotificationsRead` | segna come lette tutte le notifiche dell'utente (`useridto`; senza filtri su mittente e data; risposta `true`) |
+| `core_message_mark_all_notifications_as_read` | `markAllNotificationsRead` | segna come lette tutte le notifiche dell'utente (`useridto`; senza filtri su mittente e data; risposta attesa `true`, da verificare su WeBeep reale) |
 | `mod_page_get_pages_by_courses` | `getPages` | pagine (`mod_page`) di uno o più corsi: HTML e file allegati |
 | `core_course_search_courses` | `searchCourses` | ricerca nel catalogo (`criterianame=search`, pagina da 0, `limittoenrolled=0`): anche corsi a cui non si è iscritti |
 
 La ricerca restituisce `{ total, courses }` con `total` sul totale di tutte le
-pagine. I corsi non iscritti non si possono aprire nell'app: `core_course_get_contents`
-risponde `errorcoursecontextnotvalid`, quindi l'interfaccia li apre solo nel browser.
+pagine. Per i corsi non iscritti si prevede che `core_course_get_contents` risponda
+`errorcoursecontextnotvalid`, e per questo l'interfaccia li apre solo nel browser
+(da verificare su WeBeep reale: il codice d'errore non è ancora stato osservato dal vivo).
+
+**Segna tutte come lette** chiede una conferma in due passi, perché scrive su WeBeep.
+Il primo clic arma il pulsante ("Conferma: segna tutte come lette"), il secondo esegue
+la chiamata. Annulla, Esc o lo scadere di 4 secondi disarmano senza chiamare WeBeep.
+Lo schema accetta solo `true` come risposta: un'altra risposta diventa errore di forma.
+Anche il valore `true` va verificato su WeBeep reale.
 
 ## Candidate per le prossime feature
 
