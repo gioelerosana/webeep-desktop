@@ -30,6 +30,9 @@ linux:
   syncDesktopName: true
   # Icona dell'AppImage (PNG 1024x1024 con sfondo trasparente fuori dal quadrato).
   icon: build/icon.png
+  # Il nome qui deve restare allineato al glob delle update information in
+  # scripts/appimage-zsync.sh (`WeBeep-Desktop-*-x86_64.AppImage`). Lo script reimpacchetta
+  # l'AppImage in CI e aggiunge update information e .zsync: electron-builder non lo fa.
   artifactName: WeBeep-Desktop-${version}-${arch}.${ext}
 win:
   target:

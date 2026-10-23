@@ -46,12 +46,33 @@ jobs:
       - name: Pacchettizzazione electron-builder
         run: pnpm --filter @webeep/desktop exec electron-builder ${{ matrix.package }} --publish never
 
+      # Solo Linux. electron-builder non incorpora le update information nell'AppImage e non
+      # genera il .zsync: lo fa lo script, reimpacchettando l'AppImage con appimagetool e
+      # riscrivendo latest-linux.yml (sha512 e size cambiano). Lo strumento è fissato a una
+      # versione con checksum verificato, così un rilascio di appimagetool non cambia la build.
+      # zsyncmake è incluso nell'appimagetool stesso, nessun pacchetto apt da installare.
+      - name: Update information e zsync per l'AppImage
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL -o "$RUNNER_TEMP/bin/appimagetool" "$APPIMAGETOOL_URL"
+          echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/bin/appimagetool" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/bin/appimagetool"
+          APPIMAGETOOL="$RUNNER_TEMP/bin/appimagetool" bash apps/desktop/scripts/appimage-zsync.sh apps/desktop/release
+
+      # Il .exe.blockmap serve a electron-updater (Windows) per i download differenziali.
+      # Il .AppImage.zsync serve ai manager zsync (AppImageUpdate, Gear Lever, AppImageLauncher).
       - uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.os }}
           path: |
             apps/desktop/release/*.AppImage
+            apps/desktop/release/*.AppImage.zsync
             apps/desktop/release/*.exe
+            apps/desktop/release/*.exe.blockmap
             apps/desktop/release/latest*.yml
           if-no-files-found: error
 
@@ -65,11 +86,15 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      # Il sito della Release deve ospitare anche .zsync e .blockmap: senza, gli aggiornamenti
+      # zsync (Linux) e differenziali (Windows) non trovano i file e ricadono sul download completo.
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             release-assets/*.AppImage
+            release-assets/*.AppImage.zsync
             release-assets/*.exe
+            release-assets/*.exe.blockmap
             release-assets/latest*.yml
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
