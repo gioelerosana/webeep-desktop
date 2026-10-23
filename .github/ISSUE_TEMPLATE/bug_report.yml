@@ -1,0 +1,52 @@
+name: segnala un problema
+description: descrivi un errore o un comportamento sbagliato di webeep desktop
+title: "[bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        non incollare mai token, password o dati personali (per esempio la matricola) in questa segnalazione.
+        se un log li contiene, oscurali prima di inviarlo.
+  - type: textarea
+    id: description
+    attributes:
+      label: descrizione
+      description: cosa succede di sbagliato, in poche frasi.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: passi per riprodurre
+      description: la sequenza di azioni che porta al problema.
+      placeholder: |
+        1. apri la vista corsi
+        2. seleziona un corso
+        3. ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: comportamento atteso
+      description: cosa ti aspettavi che succedesse.
+  - type: input
+    id: app-version
+    attributes:
+      label: versione dell'app
+      description: la trovi in impostazioni.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: sistema operativo
+      description: per esempio windows 11, macos 15 o ubuntu 24.04.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: log o screenshot
+      description: facoltativo. allega solo materiale privo di token, password e dati personali.
+    validations:
+      required: false

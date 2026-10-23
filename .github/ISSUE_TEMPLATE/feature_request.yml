@@ -1,0 +1,26 @@
+name: proponi una funzione
+description: suggerisci una funzione o un miglioramento per webeep desktop
+title: "[funzione] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: problema che risolve
+      description: quale difficoltà incontri oggi e in quale situazione.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: soluzione proposta
+      description: come immagini che funzioni la funzione.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: alternative
+      description: facoltativo. altri modi di risolvere il problema che hai considerato.
+    validations:
+      required: false

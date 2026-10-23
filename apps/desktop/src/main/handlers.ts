@@ -35,6 +35,7 @@ import {
 } from '../shared/ipc.js';
 import { getActiveUser, getAuthState, login, logout, NotSignedInError, withClient } from './auth.js';
 import { downloadFile, InvalidFileRequestError, openFile, revealFile } from './files.js';
+import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
@@ -101,6 +102,7 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof InvalidSearchRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof UpdateNotReadyError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidFeedbackRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
 };
@@ -173,6 +175,11 @@ const handlers: Handlers = {
   },
   'updates:open-release': async () => {
     await openReleasePage();
+    return null;
+  },
+
+  'feedback:open': async (_context, kind) => {
+    await openFeedbackIssue(kind);
     return null;
   },
 

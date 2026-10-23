@@ -21,6 +21,7 @@ import {
   type AuthState,
   type CoursePage,
   type CoursePageFile,
+  type FeedbackKind,
   type IpcContract,
   type IpcErrorKind,
   type IpcEventName,
@@ -54,6 +55,12 @@ const MOCK_DOWNLOAD_PERCENT = 40;
 const MOCK_RELEASES_URL = 'https://github.com/gioelerosana/webeep-desktop/releases';
 const UPDATE_CHECK_ERROR_MESSAGE = 'Controllo degli aggiornamenti non riuscito (errore simulato)';
 const UPDATE_NOT_READY_MESSAGE = 'Nessun aggiornamento pronto da installare';
+const MOCK_NEW_ISSUE_URL = 'https://github.com/gioelerosana/webeep-desktop/issues/new';
+const MOCK_FEEDBACK_TEMPLATE: Record<FeedbackKind, string> = {
+  bug: 'bug_report.yml',
+  feature: 'feature_request.yml',
+};
+const MOCK_SYSTEM_DESCRIPTION = 'linux (x64), Electron di prova';
 
 const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
 const { user } = fixtures;
@@ -346,6 +353,16 @@ const handlers: MockHandlers = {
   },
   'updates:open-release': () => {
     window.open(MOCK_RELEASES_URL, '_blank', 'noopener');
+    return null;
+  },
+  // Come il main: il tipo sceglie il modulo; la versione e il sistema, solo per i bug, sono di prova.
+  'feedback:open': (kind) => {
+    const params = new URLSearchParams({ template: MOCK_FEEDBACK_TEMPLATE[kind] });
+    if (kind === 'bug') {
+      params.set('app-version', MOCK_CURRENT_VERSION);
+      params.set('os', MOCK_SYSTEM_DESCRIPTION);
+    }
+    window.open(`${MOCK_NEW_ISSUE_URL}?${params.toString()}`, '_blank', 'noopener');
     return null;
   },
   'window:minimize': () => null,

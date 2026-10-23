@@ -81,7 +81,8 @@ dei canali IPC, senza una finestra nel contesto.
 **Canali bloccati.** Il server non esegue mai i canali in
 `WEB_UNAVAILABLE_CHANNELS` (`shared/ipc.ts`): `auth:login`, `auth:logout`,
 `files:download`, `files:open`, `files:reveal`, `settings:update`,
-`settings:choose-download-dir`, `shell:open-external` e i `window:*`. Ognuno
+`settings:choose-download-dir`, `shell:open-external`, `feedback:open` (apre il
+modulo GitHub di segnalazione) e i `window:*`. Ognuno
 agirebbe sul computer che serve la pagina (sessione, file, browser, impostazioni,
 finestra) o non avrebbe una finestra a cui riferirsi; la risposta è
 `invalid-input` e non succede nulla. `window.webeep.kind` dice dove gira

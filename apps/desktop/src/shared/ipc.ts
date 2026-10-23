@@ -125,6 +125,9 @@ export type UpdateState = UpdateBase &
     | { readonly status: 'error'; readonly message: string }
   );
 
+/** Tipo di segnalazione: `bug` per un problema, `feature` per una proposta. */
+export type FeedbackKind = 'bug' | 'feature';
+
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
   /** Apre la finestra di login Polimi; si risolve a login finito o annullato. */
@@ -166,6 +169,9 @@ export type IpcContract = {
   'updates:install': { readonly args: []; readonly result: null };
   /** Apre nel browser la pagina della release. Il main costruisce l'URL dalla versione: il renderer non passa URL. */
   'updates:open-release': { readonly args: []; readonly result: null };
+
+  /** Apre nel browser il modulo GitHub di segnalazione. Il main costruisce l'URL: il renderer passa solo il tipo. */
+  'feedback:open': { readonly args: [kind: FeedbackKind]; readonly result: null };
 
   /** Controlli della barra del titolo disegnata dall'app (finestra senza cornice nativa). */
   'window:minimize': { readonly args: []; readonly result: null };
@@ -214,6 +220,8 @@ export const WEB_UNAVAILABLE_CHANNELS = [
   'settings:update',
   'settings:choose-download-dir',
   'shell:open-external',
+  // Segnalazioni: aprono il browser di chi usa il desktop, come `shell:open-external`.
+  'feedback:open',
   // Aggiornamenti: riguardano l'installazione del desktop che serve la pagina, non il browser.
   'updates:get-state',
   'updates:check',
