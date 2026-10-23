@@ -11,11 +11,14 @@ import {
   courseContentsSchema,
   coursesByTimelineSchema,
   pagesByCoursesSchema,
+  courseSearchResponseSchema,
+  markAllNotificationsReadSchema,
   popupNotificationsSchema,
   publicConfigSchema,
   siteInfoSchema,
   type CalendarEvent,
   type Course,
+  type CourseSearchPage,
   type CourseSection,
   type CourseTimelineClassification,
   type NotificationsPage,
@@ -93,12 +96,44 @@ export const getNotifications = (client: MoodleClient, options: NotificationsOpt
     popupNotificationsSchema,
   );
 
+export type CourseSearchOptions = {
+  readonly query: string;
+  readonly page: number;
+  readonly perPage: number;
+};
+
+/**
+ * Ricerca nel catalogo dei corsi, anche tra quelli a cui l'utente non è iscritto.
+ * `limittoenrolled: 0` è il default di Moodle e lo si esplicita per non dipenderne.
+ */
+export const searchCourses = (client: MoodleClient, options: CourseSearchOptions): Promise<CourseSearchPage> =>
+  client.call(
+    'core_course_search_courses',
+    {
+      criterianame: 'search',
+      criteriavalue: options.query,
+      page: options.page,
+      perpage: options.perPage,
+      limittoenrolled: 0,
+    },
+    courseSearchResponseSchema,
+  );
+
 export const markNotificationRead = async (client: MoodleClient, notificationId: number): Promise<void> => {
   await client.call(
     'core_message_mark_notification_read',
     { notificationid: notificationId, timeread: nowInSeconds() },
     z.object({ notificationid: z.number() }),
   );
+};
+
+/**
+ * Segna come lette tutte le notifiche ricevute dall'utente. Si lasciano i
+ * default di Moodle (`useridfrom` e `timecreatedto` a 0): nessun filtro per
+ * mittente o per data, quindi vale per tutte.
+ */
+export const markAllNotificationsRead = async (client: MoodleClient, userId: number): Promise<void> => {
+  await client.call('core_message_mark_all_notifications_as_read', { useridto: userId }, markAllNotificationsReadSchema);
 };
 
 /**

@@ -17,6 +17,14 @@ pnpm dev        # app Electron
 pnpm dev:web    # solo interfaccia nel browser, con dati finti
 ```
 
+## Aggiornamenti
+
+- **Windows**: l'app scarica e installa gli aggiornamenti da sola.
+- **Linux (AppImage)**: l'app ti avvisa quando esce una versione nuova. L'aggiornamento
+  si fa con un manager zsync (AppImageUpdate, Gear Lever, AppImageLauncher).
+
+Dettagli e procedura di release in [docs/UPDATES.md](docs/UPDATES.md).
+
 Guida per contributor e agenti: [AGENTS.md](AGENTS.md). Architettura:
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

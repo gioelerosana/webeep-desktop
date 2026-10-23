@@ -5,19 +5,34 @@
  * trasformano nelle forme di Moodle, con date relative a "adesso".
  *
  * `?mock=signed-out` nell'URL parte dalla schermata di login.
+ * `?update=<scenario>` sceglie lo stato iniziale dell'aggiornamento (`idle` se manca).
+ * `?mock=crash` parte con una segnalazione di crash in attesa.
  */
-import type { CalendarEvent, Course, CourseSection, ModuleContent, MoodleNotification } from '@webeep/moodle-api';
 import type {
-  AuthState,
-  CoursePage,
-  CoursePageFile,
-  IpcContract,
-  IpcErrorKind,
-  IpcEventName,
-  IpcEvents,
-  IpcResult,
-  Settings,
-  WebeepBridge,
+  CalendarEvent,
+  Course,
+  CourseSearchResult,
+  CourseSection,
+  CourseTimelineClassification,
+  ModuleContent,
+  MoodleNotification,
+} from '@webeep/moodle-api';
+import {
+  COURSE_SEARCH_PAGE_SIZE,
+  type AuthState,
+  type CoursePage,
+  type CoursePageFile,
+  type CrashReportSummary,
+  type FeedbackKind,
+  type IpcContract,
+  type IpcErrorKind,
+  type IpcEventName,
+  type IpcEvents,
+  type IpcResult,
+  type Settings,
+  type UpdatePlatform,
+  type UpdateState,
+  type WebeepBridge,
 } from '../../../shared/ipc';
 import fixtures from './mock-fixtures.json';
 
@@ -30,6 +45,34 @@ const PDF_EXTENSION = '.pdf';
 const PDF_MIMETYPE = 'application/pdf';
 const BINARY_MIMETYPE = 'application/octet-stream';
 const PAGE_NOT_FOUND_MESSAGE = 'Pagina non trovata in questo corso';
+/** Una query con questo testo simula un errore del servizio di ricerca. */
+const SEARCH_ERROR_QUERY = 'errore';
+const SEARCH_ERROR_MESSAGE = 'Ricerca non disponibile (errore simulato)';
+const SEARCH_LOCALE = 'it-IT';
+const UPDATE_PARAM = 'update';
+const UPDATE_CHECK_DELAY_MS = 1_500;
+const MOCK_CURRENT_VERSION = '0.0.1';
+const MOCK_NEW_VERSION = '0.0.2';
+const MOCK_DOWNLOAD_PERCENT = 40;
+const MOCK_RELEASES_URL = 'https://github.com/gioelerosana/webeep-desktop/releases';
+const UPDATE_CHECK_ERROR_MESSAGE = 'Controllo degli aggiornamenti non riuscito (errore simulato)';
+const UPDATE_NOT_READY_MESSAGE = 'Nessun aggiornamento pronto da installare';
+const UPDATE_NOT_AVAILABLE_MESSAGE = 'Nessun aggiornamento da scaricare';
+/* Il download finto avanza a passi fissi, come il progresso di electron-updater. */
+const DOWNLOAD_STEP_PERCENT = 25;
+const DOWNLOAD_STEP_DELAY_MS = 500;
+const MOCK_FULL_PERCENT = 100;
+const MOCK_NEW_ISSUE_URL = 'https://github.com/gioelerosana/webeep-desktop/issues/new';
+const MOCK_FEEDBACK_TEMPLATE: Record<FeedbackKind, string> = {
+  bug: 'bug_report.yml',
+  feature: 'feature_request.yml',
+};
+const MOCK_SYSTEM_DESCRIPTION = 'linux (x64), Electron di prova';
+const MOCK_CRASH_PARAM_VALUE = 'crash';
+const MOCK_CRASH_HOURS_AGO = 2;
+const MOCK_CRASH_MESSAGE = 'il processo del renderer si è chiuso (crashed, codice 139)';
+const MOCK_NEW_CRASH_ISSUE_TEMPLATE = 'crash_report.yml';
+const NO_PENDING_CRASH_MESSAGE = 'nessuna segnalazione di crash da inviare';
 
 const nowSeconds = Math.floor(Date.now() / SECONDS_PER_MS);
 const { user } = fixtures;
@@ -47,13 +90,36 @@ class MockIpcFailure extends Error {
   }
 }
 
-const courses: readonly Course[] = fixtures.courses.map((course) => ({
+type FixtureCourse = (typeof fixtures.courses)[number];
+
+const toCourse = (course: FixtureCourse): Course => ({
   ...course,
   summary: '',
   isfavourite: false,
   hidden: false,
   viewurl: `${user.siteurl}/course/view.php?id=${course.id}`,
-}));
+});
+
+const inProgressCourses: readonly Course[] = fixtures.courses.map(toCourse);
+const pastCourses: readonly Course[] = fixtures.pastCourses.map(toCourse);
+const courses: readonly Course[] = [...inProgressCourses, ...pastCourses];
+
+/** Come Moodle: le classificazioni che nelle fixture non hanno corsi restituiscono un elenco vuoto. */
+const coursesByClassification: Record<CourseTimelineClassification, readonly Course[]> = {
+  all: courses,
+  inprogress: inProgressCourses,
+  past: pastCourses,
+  future: [],
+  favourites: [],
+  hidden: [],
+};
+
+const catalog: readonly CourseSearchResult[] = fixtures.catalog;
+
+const matchesSearch = (course: CourseSearchResult, normalizedQuery: string): boolean =>
+  [course.fullname, course.shortname, course.categoryname ?? ''].some((field) =>
+    field.toLocaleLowerCase(SEARCH_LOCALE).includes(normalizedQuery),
+  );
 
 type FixtureFile = { readonly name: string; readonly size: number; readonly daysAgo: number };
 
@@ -146,16 +212,113 @@ let auth: AuthState =
     ? { status: 'signed-out' }
     : { status: 'signed-in', user };
 let settings: Settings = { downloadDir: '/home/giulia/Scaricati/WeBeep', theme: 'system' };
+/* Come il main: al più una segnalazione in attesa. Con `?mock=crash` ne parte una, da inviare o ignorare. */
+let pendingCrash: CrashReportSummary | null =
+  new URLSearchParams(window.location.search).get('mock') === MOCK_CRASH_PARAM_VALUE
+    ? {
+        kind: 'renderer-gone',
+        occurredAt: new Date(Date.now() - MOCK_CRASH_HOURS_AGO * HOUR_S * SECONDS_PER_MS).toISOString(),
+        message: MOCK_CRASH_MESSAGE,
+      }
+    : null;
+
+/** Scenari dell'aggiornamento per `?update=`: ognuno mostra uno stato diverso dell'interfaccia. */
+type MockUpdateScenario =
+  | 'unsupported'
+  | 'idle'
+  | 'available-win'
+  | 'available-linux'
+  | 'downloading'
+  | 'ready'
+  | 'error';
+const MOCK_UPDATE_SCENARIOS: readonly MockUpdateScenario[] = [
+  'unsupported',
+  'idle',
+  'available-win',
+  'available-linux',
+  'downloading',
+  'ready',
+  'error',
+];
+const MOCK_UPDATE_STATES: Record<MockUpdateScenario, UpdateState> = {
+  unsupported: { currentVersion: MOCK_CURRENT_VERSION, platform: 'other', status: 'unsupported' },
+  idle: { currentVersion: MOCK_CURRENT_VERSION, platform: 'linux', status: 'idle' },
+  'available-win': {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'windows',
+    status: 'available',
+    version: MOCK_NEW_VERSION,
+    mode: 'install',
+  },
+  'available-linux': {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'linux',
+    status: 'available',
+    version: MOCK_NEW_VERSION,
+    mode: 'manual',
+  },
+  downloading: {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'windows',
+    status: 'downloading',
+    version: MOCK_NEW_VERSION,
+    percent: MOCK_DOWNLOAD_PERCENT,
+  },
+  ready: { currentVersion: MOCK_CURRENT_VERSION, platform: 'windows', status: 'ready', version: MOCK_NEW_VERSION },
+  error: {
+    currentVersion: MOCK_CURRENT_VERSION,
+    platform: 'linux',
+    status: 'error',
+    message: UPDATE_CHECK_ERROR_MESSAGE,
+  },
+};
+const requestedUpdateScenario = new URLSearchParams(window.location.search).get(UPDATE_PARAM);
+let updateState: UpdateState =
+  MOCK_UPDATE_STATES[MOCK_UPDATE_SCENARIOS.find((scenario) => scenario === requestedUpdateScenario) ?? 'idle'];
 
 // Un insieme di listener per evento: un listener di `window:maximized-changed` non deve ricevere `auth:changed`.
 const listeners: { readonly [TEvent in IpcEventName]: Set<(payload: IpcEvents[TEvent]) => void> } = {
   'auth:changed': new Set(),
   'window:maximized-changed': new Set(),
+  'updates:state-changed': new Set(),
 };
 const setAuth = (next: AuthState): AuthState => {
   auth = next;
   listeners['auth:changed'].forEach((listener) => listener(next));
   return next;
+};
+const setUpdateState = (next: UpdateState): UpdateState => {
+  updateState = next;
+  listeners['updates:state-changed'].forEach((listener) => listener(next));
+  return next;
+};
+
+/** Esito simulato del controllo: su Windows c'è una versione da installare, su Linux solo da segnalare. */
+const updateAvailableAfterCheck = (platform: UpdatePlatform): UpdateState => ({
+  currentVersion: MOCK_CURRENT_VERSION,
+  platform,
+  status: 'available',
+  version: MOCK_NEW_VERSION,
+  mode: platform === 'windows' ? 'install' : 'manual',
+});
+
+/* Avanzamento simulato del download: passi a intervalli fissi, poi `ready`. */
+const simulateDownload = (platform: UpdatePlatform, version: string, percent = 0): void => {
+  if (percent >= MOCK_FULL_PERCENT) {
+    setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'ready', version });
+    return;
+  }
+  setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'downloading', version, percent });
+  setTimeout(() => simulateDownload(platform, version, percent + DOWNLOAD_STEP_PERCENT), DOWNLOAD_STEP_DELAY_MS);
+};
+
+/* Stessa regola di `isBusy` nel main: con questi stati un nuovo controllo sarebbe inutile o avvierebbe un secondo download. */
+const BUSY_UPDATE_STATUSES: readonly UpdateState['status'][] = ['checking', 'downloading', 'ready'];
+
+/* `available` è occupato solo su Windows (download in corso o imminente); su Linux è un avviso e si può ricontrollare. */
+const isUpdateBusy = (current: UpdateState): boolean => {
+  if (current.status === 'available') return current.mode === 'install';
+  return BUSY_UPDATE_STATUSES.includes(current.status);
 };
 
 type MockHandlers = {
@@ -166,12 +329,24 @@ const handlers: MockHandlers = {
   'auth:get-state': () => auth,
   'auth:login': () => setAuth({ status: 'signed-in', user }),
   'auth:logout': () => setAuth({ status: 'signed-out' }),
-  'moodle:courses': () => courses,
+  'moodle:courses': (classification = 'inprogress') => coursesByClassification[classification],
   'moodle:course-contents': () => sections,
   'moodle:upcoming-events': () => events,
   'moodle:notifications': () => ({ notifications: [...notifications], unreadcount: notifications.filter((item) => !item.read).length }),
+  // Come il main: il testo è pulito con trim e la pagina parte da 0; l'errore simulato non arriva al filtro.
+  'moodle:searchCourses': ({ query, page }) => {
+    const normalizedQuery = query.trim().toLocaleLowerCase(SEARCH_LOCALE);
+    if (normalizedQuery === SEARCH_ERROR_QUERY) throw new MockIpcFailure('network', SEARCH_ERROR_MESSAGE);
+    const matches = catalog.filter((course) => matchesSearch(course, normalizedQuery));
+    const firstIndex = page * COURSE_SEARCH_PAGE_SIZE;
+    return { total: matches.length, courses: matches.slice(firstIndex, firstIndex + COURSE_SEARCH_PAGE_SIZE) };
+  },
   'moodle:mark-notification-read': (notificationId) => {
     notifications = notifications.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
+    return null;
+  },
+  'moodle:mark-all-notifications-read': () => {
+    notifications = notifications.map((item) => ({ ...item, read: true }));
     return null;
   },
   // Un id di modulo che non è una pagina nelle fixture (es. 999) simula l'errore `invalid-input` del main.
@@ -193,6 +368,60 @@ const handlers: MockHandlers = {
     return settings;
   },
   'settings:choose-download-dir': () => '/home/giulia/Documenti/Polimi',
+  'updates:get-state': () => updateState,
+  // Come il main: `checking` subito, poi l'esito con `updates:state-changed` dopo un ritardo.
+  'updates:check': () => {
+    if (updateState.status === 'unsupported' || isUpdateBusy(updateState)) return updateState;
+    const { platform } = updateState;
+    setTimeout(() => setUpdateState(updateAvailableAfterCheck(platform)), UPDATE_CHECK_DELAY_MS);
+    return setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'checking' });
+  },
+  // Come il main: il download parte solo su richiesta, da `available` con `mode: install`.
+  'updates:download': () => {
+    if (updateState.status !== 'available' || updateState.mode !== 'install') {
+      throw new MockIpcFailure('invalid-input', UPDATE_NOT_AVAILABLE_MESSAGE);
+    }
+    const { platform, version } = updateState;
+    simulateDownload(platform, version);
+    return null;
+  },
+  // Nel bridge finto non si riavvia nulla: il log basta a vedere che la chiamata è arrivata.
+  'updates:install': () => {
+    if (updateState.status !== 'ready') throw new MockIpcFailure('invalid-input', UPDATE_NOT_READY_MESSAGE);
+    console.info('[webeep] Installazione simulata: nessun riavvio.');
+    return null;
+  },
+  'updates:open-release': () => {
+    window.open(MOCK_RELEASES_URL, '_blank', 'noopener');
+    return null;
+  },
+  // Come il main: il tipo sceglie il modulo; la versione e il sistema, solo per i bug, sono di prova.
+  'feedback:open': (kind) => {
+    const params = new URLSearchParams({ template: MOCK_FEEDBACK_TEMPLATE[kind] });
+    if (kind === 'bug') {
+      params.set('app-version', MOCK_CURRENT_VERSION);
+      params.set('os', MOCK_SYSTEM_DESCRIPTION);
+    }
+    window.open(`${MOCK_NEW_ISSUE_URL}?${params.toString()}`, '_blank', 'noopener');
+    return null;
+  },
+  'crash:get-pending': () => pendingCrash,
+  // Come il main: l'issue si apre nel browser e poi la segnalazione in attesa sparisce.
+  'crash:report': () => {
+    if (!pendingCrash) throw new MockIpcFailure('invalid-input', NO_PENDING_CRASH_MESSAGE);
+    const params = new URLSearchParams({ template: MOCK_NEW_CRASH_ISSUE_TEMPLATE });
+    window.open(`${MOCK_NEW_ISSUE_URL}?${params.toString()}`, '_blank', 'noopener');
+    pendingCrash = null;
+    return null;
+  },
+  'crash:dismiss': () => {
+    pendingCrash = null;
+    return null;
+  },
+  'crash:record-renderer-error': (report) => {
+    pendingCrash ??= { kind: 'renderer-error', occurredAt: new Date().toISOString(), message: report.message };
+    return null;
+  },
   'window:minimize': () => null,
   'window:toggle-maximize': () => null,
   'window:close': () => null,

@@ -1,0 +1,51 @@
+name: segnala un crash
+description: invia il crash salvato da webeep desktop, con lo stack già ripulito da token e percorsi
+title: "[crash] "
+labels: [crash, bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        questo modulo è compilato da webeep desktop con i dati del crash. controlla lo stack e togli eventuali dati personali prima di inviarlo.
+        non incollare mai token, password o dati personali (per esempio la matricola) in questa segnalazione.
+  - type: input
+    id: app-version
+    attributes:
+      label: versione dell'app
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: sistema operativo
+    validations:
+      required: true
+  - type: input
+    id: kind
+    attributes:
+      label: tipo di crash
+      description: per esempio main-exception, renderer-gone o renderer-error.
+    validations:
+      required: true
+  - type: input
+    id: occurred
+    attributes:
+      label: quando è successo
+      description: istante del crash, in formato ISO 8601.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: cosa stavi facendo
+      description: facoltativo. le azioni che hai fatto poco prima del crash.
+    validations:
+      required: false
+  - type: textarea
+    id: stack
+    attributes:
+      label: stack
+      description: compilato dall'app. se manca, incollalo dal log o lascia vuoto.
+      render: text
+    validations:
+      required: false

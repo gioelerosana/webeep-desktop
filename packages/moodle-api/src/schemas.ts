@@ -160,6 +160,9 @@ export const popupNotificationsSchema = z.object({
 });
 export type NotificationsPage = z.infer<typeof popupNotificationsSchema>;
 
+/** Moodle risponde `true` quando ha segnato le notifiche; `false` non è atteso e fa fallire la validazione. */
+export const markAllNotificationsReadSchema = z.literal(true);
+
 export const publicConfigSchema = z.object({
   wwwroot: z.string(),
   sitename: z.string(),
@@ -218,3 +221,49 @@ export const pagesByCoursesSchema = z.object({
   pages: z.array(pageSchema),
   warnings: z.array(moodleWarningSchema).optional().default([]),
 });
+
+/*
+ * Ricerca nel catalogo (`core_course_search_courses`). Riguarda anche corsi a cui
+ * l'utente non è iscritto: per quelli Moodle non dà progresso né date, quindi
+ * il risultato non riusa `courseSchema`.
+ */
+const nullishToEmpty = (value: string | null | undefined): string => value ?? '';
+
+const optionalText = z
+  .string()
+  .nullish()
+  .transform(nullishToUndefined)
+  .optional();
+
+const courseContactSchema = z.object({
+  id: z.number().int(),
+  fullname: z.string(),
+});
+
+export const courseSearchResultSchema = z.object({
+  id: z.number().int(),
+  fullname: z.string(),
+  displayname: optionalText,
+  shortname: z.string(),
+  courseimage: optionalText,
+  categoryid: z.number().int(),
+  categoryname: optionalText,
+  summary: z
+    .string()
+    .nullish()
+    .transform(nullishToEmpty),
+  contacts: z.array(courseContactSchema).optional().default([]),
+  enrollmentmethods: z.array(z.string()).optional().default([]),
+});
+export type CourseSearchResult = z.infer<typeof courseSearchResultSchema>;
+
+export const courseSearchResponseSchema = z.object({
+  total: z.number().int(),
+  courses: z.array(courseSearchResultSchema),
+});
+
+/** Una pagina della ricerca; `total` conta i risultati su tutte le pagine. */
+export type CourseSearchPage = {
+  readonly total: number;
+  readonly courses: readonly CourseSearchResult[];
+};

@@ -4,6 +4,7 @@
 import { Spinner } from '@webeep/ui-kit';
 import type { ReactNode } from 'react';
 import type { AuthState } from '../../shared/ipc';
+import { CrashNotice } from './components/crash/CrashNotice';
 import { AppShell } from './layout/AppShell';
 import { TitleBar } from './layout/TitleBar';
 import { NavigationProvider, useNavigation, type Route } from './lib/navigation';
@@ -13,6 +14,7 @@ import { CourseView } from './views/course/CourseView';
 import { HomeView } from './views/home/HomeView';
 import { LoginView } from './views/login/LoginView';
 import { NotificationsView } from './views/notifications/NotificationsView';
+import { SearchView } from './views/search/SearchView';
 import { SettingsView } from './views/settings/SettingsView';
 
 const assertNever = (value: never): never => {
@@ -23,6 +25,7 @@ const renderRoute = (route: Route): ReactNode => {
   if (route.name === 'home') return <HomeView />;
   if (route.name === 'course') return <CourseView key={route.courseId} courseId={route.courseId} />;
   if (route.name === 'notifications') return <NotificationsView />;
+  if (route.name === 'search') return <SearchView />;
   if (route.name === 'settings') return <SettingsView />;
   return assertNever(route);
 };
@@ -57,6 +60,7 @@ export const App = (): ReactNode => {
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
+      <CrashNotice />
       <div className="flex min-h-0 flex-1 flex-col">{renderScreen(auth.data)}</div>
     </div>
   );

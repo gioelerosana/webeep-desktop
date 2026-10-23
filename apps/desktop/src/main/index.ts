@@ -3,10 +3,13 @@
  */
 import { app, BrowserWindow, dialog, shell, type BrowserWindowConstructorOptions } from 'electron';
 import { join } from 'node:path';
+import appIcon from '../../resources/icon.png?asset';
 import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
+import { installCrashReporting } from './crash-report.js';
 import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
 import { registerIpcHandlers } from './handlers.js';
+import { startUpdater } from './updater.js';
 import { isWebMode, startWebServer } from './web-server.js';
 
 const WINDOW_WIDTH = 1280;
@@ -24,6 +27,8 @@ const SINGLE_INSTANCE_MESSAGE =
 const WINDOW_CHROME: BrowserWindowConstructorOptions =
   process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : { frame: false };
 
+// Prima di tutto il resto: un crash durante l'avvio va comunque registrato.
+installCrashReporting();
 registerAssetScheme();
 
 const createMainWindow = (): BrowserWindow => {
@@ -33,6 +38,8 @@ const createMainWindow = (): BrowserWindow => {
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
     title: 'WeBeep',
+    // Su Linux, senza `icon`, la finestra mostra l'icona generica di Electron.
+    icon: appIcon,
     show: false,
     autoHideMenuBar: true,
     ...WINDOW_CHROME,
@@ -81,6 +88,8 @@ const start = async (): Promise<void> => {
     return;
   }
   createMainWindow();
+  // Dopo la finestra: lo stato degli aggiornamenti arriva alle finestre aperte, e in web/diagnosi non serve.
+  startUpdater();
 
   app.on('activate', () => {
     if (!BrowserWindow.getAllWindows().length) createMainWindow();

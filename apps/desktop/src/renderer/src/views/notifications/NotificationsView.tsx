@@ -1,33 +1,28 @@
 import { Button, Card, EmptyState, Skeleton } from '@webeep/ui-kit';
 import { AlertCircle, BellOff } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import type { MoodleNotification } from '@webeep/moodle-api';
+import type { ReactNode } from 'react';
 import { PageHeader, Page } from '../../layout/Page';
-import { useNotifications } from '../../lib/queries';
+import { MarkAllReadButton } from './MarkAllReadButton';
 import { NotificationRow } from './NotificationRow';
-
-type NotificationFilter = 'all' | 'unread';
+import { useNotificationsView, type NotificationFilter } from './useNotificationsView';
 
 const FILTER_OPTIONS: readonly { readonly value: NotificationFilter; readonly label: string }[] = [
   { value: 'all', label: 'Tutte' },
   { value: 'unread', label: 'Non lette' },
 ];
 
+const EMPTY_TITLES: Readonly<Record<NotificationFilter, string>> = {
+  all: 'Nessuna notifica',
+  unread: 'Nessuna notifica da leggere',
+};
+
 const SKELETON_ROWS_COUNT = 5;
 const SKELETON_ROWS: readonly number[] = Array.from({ length: SKELETON_ROWS_COUNT }, (_, index) => index);
 
-const visibleNotifications = (
-  notifications: readonly MoodleNotification[],
-  filter: NotificationFilter,
-): readonly MoodleNotification[] => (filter === 'unread' ? notifications.filter((notification) => !notification.read) : notifications);
-
-const describeCount = (unreadCount: number): string => (unreadCount > 0 ? `${unreadCount} non lette` : 'Tutto letto');
-
 export const NotificationsView = (): ReactNode => {
-  const [filter, setFilter] = useState<NotificationFilter>('all');
-  const notificationsQuery = useNotifications();
+  const view = useNotificationsView();
 
-  if (notificationsQuery.isError) {
+  if (view.isLoadFailed) {
     return (
       <Page>
         <PageHeader title="Notifiche" />
@@ -36,7 +31,7 @@ export const NotificationsView = (): ReactNode => {
             icon={<AlertCircle />}
             title="Impossibile caricare le notifiche"
             action={
-              <Button variant="outline" size="sm" onClick={() => notificationsQuery.refetch()}>
+              <Button variant="outline" size="sm" onClick={view.retry}>
                 Riprova
               </Button>
             }
@@ -46,12 +41,8 @@ export const NotificationsView = (): ReactNode => {
     );
   }
 
-  const page = notificationsQuery.data;
-  const notifications = visibleNotifications(page?.notifications ?? [], filter);
-  const emptyTitle = filter === 'unread' ? 'Nessuna notifica da leggere' : 'Nessuna notifica';
-
   const renderList = (): ReactNode => {
-    if (notificationsQuery.isPending) {
+    if (view.isPending) {
       return (
         <div className="flex flex-col gap-3 px-4 py-3">
           {SKELETON_ROWS.map((row) => (
@@ -60,10 +51,10 @@ export const NotificationsView = (): ReactNode => {
         </div>
       );
     }
-    if (notifications.length === 0) return <EmptyState icon={<BellOff />} title={emptyTitle} />;
+    if (view.notifications.length === 0) return <EmptyState icon={<BellOff />} title={EMPTY_TITLES[view.filter]} />;
     return (
       <ul className="divide-y">
-        {notifications.map((notification) => (
+        {view.notifications.map((notification) => (
           <NotificationRow key={notification.id} notification={notification} />
         ))}
       </ul>
@@ -74,25 +65,28 @@ export const NotificationsView = (): ReactNode => {
     <Page>
       <PageHeader
         title="Notifiche"
-        description={page ? describeCount(page.unreadcount) : undefined}
+        description={view.countLabel}
         actions={
-          <div role="group" aria-label="Filtra notifiche" className="flex items-center gap-1">
-            {FILTER_OPTIONS.map((option) => {
-              const active = option.value === filter;
-              return (
-                <Button
-                  key={option.value}
-                  variant={active ? 'secondary' : 'ghost-muted'}
-                  size="sm"
-                  aria-pressed={active}
-                  className={active ? 'border-input' : undefined}
-                  onClick={() => setFilter(option.value)}
-                >
-                  {option.label}
-                </Button>
-              );
-            })}
-          </div>
+          <>
+            <MarkAllReadButton unreadCount={view.unreadCount} />
+            <div role="group" aria-label="Filtra notifiche" className="flex items-center gap-1">
+              {FILTER_OPTIONS.map((option) => {
+                const active = option.value === view.filter;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={active ? 'secondary' : 'ghost-muted'}
+                    size="sm"
+                    aria-pressed={active}
+                    className={active ? 'border-input' : undefined}
+                    onClick={() => view.setFilter(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </>
         }
       />
 

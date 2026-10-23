@@ -1,0 +1,40 @@
+{
+  "total": 27,
+  "courses": [
+    {
+      "id": 101,
+      "fullname": "ANALISI MATEMATICA 1 [C.I.] (FORMIGGINI MARIA)",
+      "displayname": "Analisi matematica 1",
+      "shortname": "AM1-2026",
+      "courseimage": "https://webeep.polimi.it/pluginfile.php/101/course/overviewfiles/am1.jpg",
+      "categoryid": 12,
+      "categoryname": "Ingegneria Informatica",
+      "sortorder": 1001,
+      "summary": "<p>Limiti, derivate e integrali.</p>",
+      "summaryformat": 1,
+      "summaryfiles": [],
+      "overviewfiles": [],
+      "showactivitydates": false,
+      "showcompletionconditions": null,
+      "contacts": [{ "id": 4001, "fullname": "Maria Formiggini" }],
+      "enrollmentmethods": ["manual", "self"]
+    },
+    {
+      "id": 205,
+      "fullname": "CALCOLO NUMERICO (ESPOSITO LAURA)",
+      "displayname": "Calcolo numerico",
+      "shortname": "CALN-2026",
+      "categoryid": 14,
+      "categoryname": "Ingegneria Civile",
+      "sortorder": 1002,
+      "summary": "",
+      "summaryformat": 1,
+      "summaryfiles": [],
+      "overviewfiles": [],
+      "showactivitydates": true,
+      "showcompletionconditions": null,
+      "contacts": [],
+      "enrollmentmethods": ["self"]
+    }
+  ]
+}

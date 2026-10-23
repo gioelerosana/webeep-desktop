@@ -1,0 +1,13 @@
+{
+  "total": 1,
+  "courses": [
+    {
+      "id": 301,
+      "fullname": "FISICA TECNICA (BIANCHI TOMMASO)",
+      "shortname": "FTEC-2026",
+      "courseimage": null,
+      "categoryid": 9,
+      "summary": null
+    }
+  ]
+}

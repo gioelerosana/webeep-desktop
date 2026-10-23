@@ -6,9 +6,14 @@ appId: it.polimi.webeep.desktop
 productName: WeBeep Desktop
 directories:
   output: release
+  # Risorse per il pacchetto (icone), fuori dal pacchetto: `build/` non entra nell'app.
+  buildResources: build
 files:
   - out/**/*
   - package.json
+  # L'icona della finestra è letta dal percorso ../../resources/icon.png rispetto a out/main
+  # (vedi `?asset` in src/main): va inclusa nel pacchetto, altrimenti manca in produzione.
+  - resources/icon.png
 asar: true
 npmRebuild: false
 publish:
@@ -23,11 +28,18 @@ linux:
   category: Education
   executableName: webeep-desktop
   syncDesktopName: true
+  # Icona dell'AppImage (PNG 1024x1024 con sfondo trasparente fuori dal quadrato).
+  icon: build/icon.png
+  # Il nome qui deve restare allineato al glob delle update information in
+  # scripts/appimage-zsync.sh (`WeBeep-Desktop-*-x86_64.AppImage`). Lo script reimpacchetta
+  # l'AppImage in CI e aggiunge update information e .zsync: electron-builder non lo fa.
   artifactName: WeBeep-Desktop-${version}-${arch}.${ext}
 win:
   target:
     - target: nsis
       arch:
         - x64
+  # electron-builder converte il PNG nell'.ico usato dall'eseguibile e dall'installer.
+  icon: build/icon.png
 nsis:
   artifactName: WeBeep-Desktop-Setup-${version}-${arch}.${ext}

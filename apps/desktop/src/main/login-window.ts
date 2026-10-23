@@ -19,6 +19,7 @@ import {
   parseLaunchCallback,
   type LaunchToken,
 } from '@webeep/moodle-api/auth';
+import appIcon from '../../resources/icon.png?asset';
 
 export const LOGIN_PARTITION = 'persist:webeep-login';
 const LOGIN_WINDOW_WIDTH = 520;
@@ -45,6 +46,8 @@ export const runLoginFlow = (siteUrl: string, parent: BrowserWindow | undefined)
     width: LOGIN_WINDOW_WIDTH,
     height: LOGIN_WINDOW_HEIGHT,
     title: 'Accedi a WeBeep',
+    // Stessa icona della finestra principale: su Linux senza `icon` mostrerebbe quella di Electron.
+    icon: appIcon,
     parent,
     modal: Boolean(parent),
     autoHideMenuBar: true,

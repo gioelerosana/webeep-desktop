@@ -11,10 +11,15 @@
     "lang": "it"
   },
   "courses": [
-    { "id": 101, "fullname": "ANALISI MATEMATICA 1 [C.I.] (FORMIGGINI MARIA)", "shortname": "AM1-2026", "coursecategory": "Ingegneria Informatica", "progress": 35 },
-    { "id": 102, "fullname": "CHIMICA GENERALE (ROSSI LUCA)", "shortname": "CHIM-2026", "coursecategory": "Ingegneria Informatica", "progress": 50 },
+    { "id": 101, "fullname": "ANALISI MATEMATICA 1 [C.I.] [2026-27] (FORMIGGINI MARIA)", "shortname": "AM1-2026", "coursecategory": "Ingegneria Informatica", "progress": 35 },
+    { "id": 102, "fullname": "CHIMICA GENERALE [2026-27] (ROSSI LUCA)", "shortname": "CHIM-2026", "coursecategory": "Ingegneria Informatica", "progress": 50 },
     { "id": 103, "fullname": "FONDAMENTI DI INFORMATICA (VERDI ANNA)", "shortname": "FOND-INF-2026", "coursecategory": "Ingegneria Informatica", "progress": 20 },
     { "id": 104, "fullname": "GEOMETRIA E ALGEBRA LINEARE (NERI PAOLO)", "shortname": "GAL-2026", "coursecategory": "Ingegneria Informatica", "progress": 10 }
+  ],
+  "pastCourses": [
+    { "id": 105, "fullname": "STORIA DELLA SCIENZA [2025-26] (GALLO CARLO)", "shortname": "SDS-2025", "coursecategory": "Ingegneria Informatica", "progress": 100 },
+    { "id": 106, "fullname": "PROGRAMMAZIONE I [2024-25] (CONTI SARA)", "shortname": "PROG1-2025", "coursecategory": "Ingegneria Informatica", "progress": 100 },
+    { "id": 107, "fullname": "FISICA GENERALE (BIANCHI ELENA)", "shortname": "FIS-2024", "coursecategory": "Ingegneria Informatica", "progress": 100 }
   ],
   "sections": [
     {
@@ -81,6 +86,32 @@
       "contentHtml": "",
       "files": []
     }
+  ],
+  "catalog": [
+    {"id": 101, "fullname": "ANALISI MATEMATICA 1 [C.I.] [2026-27] (FORMIGGINI MARIA)", "shortname": "AM1-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di analisi matematica 1 [c.i.].</p>", "contacts": [{"id": 4000, "fullname": "Formiggini Maria"}], "enrollmentmethods": ["manual", "self"]},
+    {"id": 102, "fullname": "CHIMICA GENERALE [2026-27] (ROSSI LUCA)", "shortname": "CHIM-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di chimica generale.</p>", "contacts": [{"id": 4001, "fullname": "Rossi Luca"}], "enrollmentmethods": ["manual"]},
+    {"id": 105, "fullname": "STORIA DELLA SCIENZA [2025-26] (GALLO CARLO)", "shortname": "SDS-2025", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di storia della scienza.</p>", "contacts": [{"id": 4002, "fullname": "Gallo Carlo"}], "enrollmentmethods": ["manual"]},
+    {"id": 201, "fullname": "CALCOLO NUMERICO (ESPOSITO LAURA)", "shortname": "CALN-2026", "categoryid": 14, "categoryname": "Ingegneria Civile", "summary": "<p>Corso di calcolo numerico.</p>", "contacts": [{"id": 4003, "fullname": "Esposito Laura"}], "enrollmentmethods": ["self"]},
+    {"id": 202, "fullname": "BASI DI DATI (MORETTI ANDREA)", "shortname": "BDD-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di basi di dati.</p>", "contacts": [{"id": 4004, "fullname": "Moretti Andrea"}], "enrollmentmethods": ["self"]},
+    {"id": 203, "fullname": "SISTEMI OPERATIVI (FERRARI GIORGIO)", "shortname": "SO-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di sistemi operativi.</p>", "contacts": [{"id": 4005, "fullname": "Ferrari Giorgio"}], "enrollmentmethods": ["self"]},
+    {"id": 204, "fullname": "TERMODINAMICA (RICCI MARTA)", "shortname": "TERM-2026", "categoryid": 20, "categoryname": "Ingegneria Meccanica", "summary": "<p>Corso di termodinamica.</p>", "contacts": [{"id": 4006, "fullname": "Ricci Marta"}], "enrollmentmethods": []},
+    {"id": 205, "fullname": "ELETTROTECNICA (COLOMBO DARIO)", "shortname": "ELT-2026", "categoryid": 18, "categoryname": "Ingegneria Elettrica", "summary": "<p>Corso di elettrotecnica.</p>", "contacts": [{"id": 4007, "fullname": "Colombo Dario"}], "enrollmentmethods": ["manual", "self"]},
+    {"id": 206, "fullname": "ECONOMIA E ORGANIZZAZIONE AZIENDALE (BRUNO ELENA)", "shortname": "EOA-2026", "categoryid": 16, "categoryname": "Ingegneria Gestionale", "summary": "<p>Corso di economia e organizzazione aziendale.</p>", "contacts": [{"id": 4008, "fullname": "Bruno Elena"}], "enrollmentmethods": ["self"]},
+    {"id": 207, "fullname": "RETI DI CALCOLATORI (LOMBARDI PIETRO)", "shortname": "RETI-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di reti di calcolatori.</p>", "contacts": [{"id": 4009, "fullname": "Lombardi Pietro"}], "enrollmentmethods": ["self"]},
+    {"id": 208, "fullname": "SCIENZA DEI MATERIALI (GRECO SILVIA)", "shortname": "SCMAT-2026", "categoryid": 20, "categoryname": "Ingegneria Meccanica", "summary": "<p>Corso di scienza dei materiali.</p>", "contacts": [{"id": 4010, "fullname": "Greco Silvia"}], "enrollmentmethods": []},
+    {"id": 209, "fullname": "ANALISI DEI DATI (MARINO FEDERICA)", "shortname": "AD-2026", "categoryid": 16, "categoryname": "Ingegneria Gestionale", "summary": "<p>Corso di analisi dei dati.</p>", "contacts": [{"id": 4011, "fullname": "Marino Federica"}], "enrollmentmethods": ["self"]},
+    {"id": 210, "fullname": "ALGORITMI E STRUTTURE DATI (VITALE DAVIDE)", "shortname": "ASD-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di algoritmi e strutture dati.</p>", "contacts": [{"id": 4012, "fullname": "Vitale Davide"}], "enrollmentmethods": ["manual"]},
+    {"id": 211, "fullname": "COSTRUZIONI IDRAULICHE (ROMANO LUCA)", "shortname": "COSTI-2026", "categoryid": 14, "categoryname": "Ingegneria Civile", "summary": "<p>Corso di costruzioni idrauliche.</p>", "contacts": [{"id": 4013, "fullname": "Romano Luca"}], "enrollmentmethods": ["self"]},
+    {"id": 212, "fullname": "CONTROLLI AUTOMATICI (FONTANA ELISA)", "shortname": "CTRL-2026", "categoryid": 18, "categoryname": "Ingegneria Elettrica", "summary": "<p>Corso di controlli automatici.</p>", "contacts": [{"id": 4014, "fullname": "Fontana Elisa"}], "enrollmentmethods": ["self"]},
+    {"id": 213, "fullname": "MACCHINE A FLUIDO (SERRA MATTEO)", "shortname": "MAF-2026", "categoryid": 20, "categoryname": "Ingegneria Meccanica", "summary": "<p>Corso di macchine a fluido.</p>", "contacts": [{"id": 4015, "fullname": "Serra Matteo"}], "enrollmentmethods": []},
+    {"id": 214, "fullname": "MARKETING (CARUSO ANNA)", "shortname": "MKT-2026", "categoryid": 16, "categoryname": "Ingegneria Gestionale", "summary": "<p>Corso di marketing.</p>", "contacts": [{"id": 4016, "fullname": "Caruso Anna"}], "enrollmentmethods": ["self"]},
+    {"id": 215, "fullname": "INTELLIGENZA ARTIFICIALE (MANCINI ROBERTO)", "shortname": "IA-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di intelligenza artificiale.</p>", "contacts": [{"id": 4017, "fullname": "Mancini Roberto"}], "enrollmentmethods": ["self"]},
+    {"id": 216, "fullname": "TECNICA DELLE COSTRUZIONI (LEONE GIULIA)", "shortname": "TDC-2026", "categoryid": 14, "categoryname": "Ingegneria Civile", "summary": "<p>Corso di tecnica delle costruzioni.</p>", "contacts": [{"id": 4018, "fullname": "Leone Giulia"}], "enrollmentmethods": ["self"]},
+    {"id": 217, "fullname": "ELETTRONICA DIGITALE (PARISI SIMONE)", "shortname": "ELDIG-2026", "categoryid": 18, "categoryname": "Ingegneria Elettrica", "summary": "<p>Corso di elettronica digitale.</p>", "contacts": [{"id": 4019, "fullname": "Parisi Simone"}], "enrollmentmethods": ["self"]},
+    {"id": 218, "fullname": "DISEGNO TECNICO (RUSSO CHIARA)", "shortname": "DIS-2026", "categoryid": 20, "categoryname": "Ingegneria Meccanica", "summary": "<p>Corso di disegno tecnico.</p>", "contacts": [{"id": 4020, "fullname": "Russo Chiara"}], "enrollmentmethods": []},
+    {"id": 219, "fullname": "RICERCA OPERATIVA (GIULIANI MARCO)", "shortname": "RO-2026", "categoryid": 16, "categoryname": "Ingegneria Gestionale", "summary": "<p>Corso di ricerca operativa.</p>", "contacts": [{"id": 4021, "fullname": "Giuliani Marco"}], "enrollmentmethods": ["self"]},
+    {"id": 220, "fullname": "SICUREZZA INFORMATICA (AMATO VALERIA)", "shortname": "SIC-2026", "categoryid": 12, "categoryname": "Ingegneria Informatica", "summary": "<p>Corso di sicurezza informatica.</p>", "contacts": [{"id": 4022, "fullname": "Amato Valeria"}], "enrollmentmethods": ["self"]},
+    {"id": 221, "fullname": "GEOMETRIA DELLE COSTRUZIONI (FERRI NICOLA)", "shortname": "GCOS-2026", "categoryid": 14, "categoryname": "Ingegneria Civile", "summary": "<p>Corso di geometria delle costruzioni.</p>", "contacts": [{"id": 4023, "fullname": "Ferri Nicola"}], "enrollmentmethods": ["manual"]}
   ],
   "events": [
     { "id": 501, "name": "Homework 1 è in scadenza", "inHours": 5, "courseId": 101, "modulename": "assign" },

@@ -1,6 +1,6 @@
 {
   "name": "@webeep/desktop",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "MIT",
   "author": "Gioele",
   "private": true,
@@ -19,6 +19,7 @@
     "dist:linux": "electron-vite build && electron-builder --linux AppImage --x64 --publish never"
   },
   "dependencies": {
+    "electron-updater": "6.8.11",
     "zod": "4.6.5"
   },
   "devDependencies": {

@@ -3,22 +3,42 @@
  * mai `invoke` diretto per leggere dati: così cache, chiavi e invalidazioni
  * stanno in un posto solo.
  */
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
 import type {
   CalendarEvent,
   Course,
+  CourseSearchPage,
+  CourseSearchResult,
   CourseSection,
   CourseTimelineClassification,
   NotificationsPage,
 } from '@webeep/moodle-api';
-import type { AuthState, CoursePage, DownloadResult, FileRequest, Settings } from '../../../shared/ipc';
+import {
+  COURSE_SEARCH_MAX_QUERY_LENGTH,
+  COURSE_SEARCH_MIN_QUERY_LENGTH,
+  type AuthState,
+  type CoursePage,
+  type DownloadResult,
+  type FileRequest,
+  type Settings,
+} from '../../../shared/ipc';
 import { invoke } from './ipc';
 
 export const queryKeys = {
   auth: ['auth'] as const,
   courses: (classification: CourseTimelineClassification) => ['courses', classification] as const,
   courseContents: (courseId: number) => ['course-contents', courseId] as const,
+  courseSearch: (query: string) => ['course-search', query] as const,
   coursePage: (courseId: number, moduleId: number) => ['course-page', courseId, moduleId] as const,
   upcomingEvents: ['upcoming-events'] as const,
   notifications: ['notifications'] as const,
@@ -71,6 +91,74 @@ export const useCoursePage = (courseId: number, moduleId: number): UseQueryResul
     queryFn: () => invoke('course:page', { courseId, moduleId }),
   });
 
+/**
+ * Stato di iscrizione di un corso trovato. `unknown` finché l'elenco dei corsi
+ * iscritti non è arrivato: in quel tempo la riga non sa ancora se aprire o espandere.
+ */
+export type CourseEnrollment = 'enrolled' | 'not-enrolled' | 'unknown';
+
+/** Corso trovato nella ricerca, con il suo stato di iscrizione. */
+export type CourseSearchHit = CourseSearchResult & { readonly enrollment: CourseEnrollment };
+
+export type CourseSearchHitsPage = {
+  readonly total: number;
+  readonly courses: readonly CourseSearchHit[];
+};
+
+/*
+ * Legge lo stato di iscrizione dall'elenco dei corsi. Se l'elenco fallisce senza
+ * dati precedenti, il corso è trattato come non iscritto: la riga si espande e il
+ * dettaglio apre la pagina nel browser, che funziona anche per chi è iscritto.
+ * Si perde solo il badge "Iscritto", senza bloccare la riga.
+ */
+const useEnrollmentOf = (): ((courseId: number) => CourseEnrollment) => {
+  const allCourses = useCourses('all');
+  const enrolledIds = useMemo(() => new Set((allCourses.data ?? []).map((course) => course.id)), [allCourses.data]);
+  return useCallback(
+    (courseId: number): CourseEnrollment => {
+      if (allCourses.data) return enrolledIds.has(courseId) ? 'enrolled' : 'not-enrolled';
+      return allCourses.isError ? 'not-enrolled' : 'unknown';
+    },
+    [allCourses.data, allCourses.isError, enrolledIds],
+  );
+};
+
+const isSearchableQuery = (query: string): boolean =>
+  query.length >= COURSE_SEARCH_MIN_QUERY_LENGTH && query.length <= COURSE_SEARCH_MAX_QUERY_LENGTH;
+
+/**
+ * Ricerca nel catalogo, a pagine (il main ne decide la dimensione). Il testo è
+ * pulito con `trim` e la query parte solo se la lunghezza è valida: il debounce
+ * sta nella vista, non qui. I risultati sono arricchiti con `enrollment`; finché
+ * l'elenco dei corsi iscritti non arriva, lo stato è `unknown`.
+ */
+export const useCourseSearch = (query: string): UseInfiniteQueryResult<InfiniteData<CourseSearchHitsPage>, Error> => {
+  const normalizedQuery = query.trim();
+  const enrollmentOf = useEnrollmentOf();
+  const markEnrollment = useCallback(
+    (data: InfiniteData<CourseSearchPage>): InfiniteData<CourseSearchHitsPage> => ({
+      pageParams: data.pageParams,
+      pages: data.pages.map((page) => ({
+        total: page.total,
+        courses: page.courses.map((course) => ({ ...course, enrollment: enrollmentOf(course.id) })),
+      })),
+    }),
+    [enrollmentOf],
+  );
+  return useInfiniteQuery({
+    queryKey: queryKeys.courseSearch(normalizedQuery),
+    queryFn: ({ pageParam }) => invoke('moodle:searchCourses', { query: normalizedQuery, page: pageParam }),
+    initialPageParam: 0,
+    // Si va avanti finché i risultati caricati non raggiungono il totale; una pagina vuota ferma il giro.
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedCount = allPages.reduce((count, page) => count + page.courses.length, 0);
+      return lastPage.courses.length > 0 && loadedCount < lastPage.total ? allPages.length : undefined;
+    },
+    select: markEnrollment,
+    enabled: isSearchableQuery(normalizedQuery),
+  });
+};
+
 export const useUpcomingEvents = (): UseQueryResult<readonly CalendarEvent[]> =>
   useQuery({ queryKey: queryKeys.upcomingEvents, queryFn: () => invoke('moodle:upcoming-events') });
 
@@ -81,6 +169,15 @@ export const useMarkNotificationRead = (): UseMutationResult<null, Error, number
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (notificationId: number) => invoke('moodle:mark-notification-read', notificationId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+  });
+};
+
+/** Invalida l'elenco: il contatore dei non letti (sidebar, intestazione) arriva con lo stesso dato. */
+export const useMarkAllNotificationsRead = (): UseMutationResult<null, Error, void> => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => invoke('moodle:mark-all-notifications-read'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
   });
 };

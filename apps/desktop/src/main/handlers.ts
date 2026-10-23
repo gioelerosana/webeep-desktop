@@ -15,18 +15,45 @@ import {
   getCourses,
   getNotifications,
   getUpcomingEvents,
+  markAllNotificationsRead,
   markNotificationRead,
   MoodleApiError,
   MoodleNetworkError,
   MoodleResponseShapeError,
+  searchCourses,
 } from '@webeep/moodle-api';
 import { LaunchTokenError } from '@webeep/moodle-api/auth';
-import type { IpcArgs, IpcChannel, IpcFailure, IpcResult, IpcReturn } from '../shared/ipc.js';
+import {
+  COURSE_SEARCH_MAX_QUERY_LENGTH,
+  COURSE_SEARCH_MIN_QUERY_LENGTH,
+  COURSE_SEARCH_PAGE_SIZE,
+  type IpcArgs,
+  type IpcChannel,
+  type IpcFailure,
+  type IpcResult,
+  type IpcReturn,
+} from '../shared/ipc.js';
 import { getActiveUser, getAuthState, login, logout, NotSignedInError, withClient } from './auth.js';
 import { downloadFile, InvalidFileRequestError, openFile, revealFile } from './files.js';
+import {
+  dismissPendingCrash,
+  getPendingCrashSummary,
+  InvalidCrashReportError,
+  recordRendererError,
+  reportPendingCrash,
+} from './crash-report.js';
+import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateState,
+  installUpdate,
+  openReleasePage,
+  UpdateNotReadyError,
+} from './updater.js';
 
 /** Chi ha inviato il comando. In modalità web la finestra è sempre assente. */
 export type ChannelContext = { readonly window: BrowserWindow | undefined };
@@ -40,6 +67,38 @@ type Handlers = { readonly [TChannel in IpcChannel]: Handler<TChannel> };
 
 const EXTERNAL_PROTOCOLS: readonly string[] = ['http:', 'https:'];
 const WINDOW_UNAVAILABLE_MESSAGE = 'nessuna finestra per questo comando';
+/* Il renderer non è fidato: un numero di pagina senza limite si inoltrerebbe a WeBeep così com'è. Il tetto rifiuta i valori anomali prima della chiamata. */
+const MAX_SEARCH_PAGE = 1000;
+
+class InvalidSearchRequestError extends Error {
+  override readonly name = 'InvalidSearchRequestError';
+}
+
+/** Gli argomenti arrivano dal renderer, quindi si ricontrollano qui: il tipo da solo non basta. */
+const parseSearchQuery = (raw: unknown): string => {
+  const query = typeof raw === 'string' ? raw.trim() : '';
+  if (query.length < COURSE_SEARCH_MIN_QUERY_LENGTH || query.length > COURSE_SEARCH_MAX_QUERY_LENGTH) {
+    throw new InvalidSearchRequestError(
+      `La ricerca deve avere tra ${COURSE_SEARCH_MIN_QUERY_LENGTH} e ${COURSE_SEARCH_MAX_QUERY_LENGTH} caratteri`,
+    );
+  }
+  return query;
+};
+
+const parseSearchPage = (raw: unknown): number => {
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0 || raw > MAX_SEARCH_PAGE) {
+    throw new InvalidSearchRequestError('Pagina della ricerca non valida');
+  }
+  return raw;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+/* Un argomento `null` o non oggetto arriva dal renderer: va rifiutato prima di leggerne i campi. */
+const parseSearchRequest = (raw: unknown): { readonly query: string; readonly page: number } => {
+  if (!isRecord(raw)) throw new InvalidSearchRequestError('Richiesta di ricerca non valida');
+  return { query: parseSearchQuery(raw.query), page: parseSearchPage(raw.page) };
+};
 
 class WindowUnavailableError extends Error {
   override readonly name = 'WindowUnavailableError';
@@ -56,7 +115,11 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof LoginCancelledError || error instanceof LaunchTokenError) return { kind: 'auth', message: error.message };
   if (error instanceof InvalidFileRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidPageRequestError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidSearchRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof UpdateNotReadyError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidFeedbackRequestError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidCrashReportError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
 };
@@ -82,6 +145,14 @@ const handlers: Handlers = {
   'moodle:mark-notification-read': async (_context, notificationId) => {
     await withClient((client) => markNotificationRead(client, notificationId));
     return null;
+  },
+  'moodle:mark-all-notifications-read': async () => {
+    await withClient((client) => markAllNotificationsRead(client, getActiveUser().userid));
+    return null;
+  },
+  'moodle:searchCourses': async (_context, request) => {
+    const { query, page } = parseSearchRequest(request);
+    return withClient((client) => searchCourses(client, { query, page, perPage: COURSE_SEARCH_PAGE_SIZE }));
   },
   'course:page': async (_context, request) => getCoursePage(request),
 
@@ -111,6 +182,40 @@ const handlers: Handlers = {
     const parent = context.window;
     const picked = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     return picked.canceled ? null : (picked.filePaths[0] ?? null);
+  },
+
+  'updates:get-state': async () => getUpdateState(),
+  'updates:check': async () => checkForUpdates(),
+  'updates:download': async () => {
+    downloadUpdate();
+    return null;
+  },
+  'updates:install': async () => {
+    installUpdate();
+    return null;
+  },
+  'updates:open-release': async () => {
+    await openReleasePage();
+    return null;
+  },
+
+  'feedback:open': async (_context, kind) => {
+    await openFeedbackIssue(kind);
+    return null;
+  },
+
+  'crash:get-pending': async () => getPendingCrashSummary(),
+  'crash:report': async () => {
+    await reportPendingCrash();
+    return null;
+  },
+  'crash:dismiss': async () => {
+    dismissPendingCrash();
+    return null;
+  },
+  'crash:record-renderer-error': async (_context, report) => {
+    recordRendererError(report);
+    return null;
   },
 
   'window:minimize': async (context) => {
