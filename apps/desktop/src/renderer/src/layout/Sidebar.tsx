@@ -7,6 +7,7 @@ import { SidebarCourseList } from './SidebarCourseList';
 import { SidebarFooter } from './SidebarFooter';
 import { SidebarItem } from './SidebarItem';
 import { SidebarPastCourses } from './SidebarPastCourses';
+import { SidebarUpdateNotice } from './SidebarUpdateNotice';
 import { useSidebarCourses } from './useSidebarCourses';
 
 const APP_NAME = 'WeBeep';
@@ -71,6 +72,7 @@ export const Sidebar = (): ReactNode => {
         />
       </section>
 
+      <SidebarUpdateNotice />
       <SidebarFooter />
     </aside>
   );
