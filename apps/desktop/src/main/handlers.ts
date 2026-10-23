@@ -46,7 +46,14 @@ import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
-import { checkForUpdates, getUpdateState, installUpdate, openReleasePage, UpdateNotReadyError } from './updater.js';
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateState,
+  installUpdate,
+  openReleasePage,
+  UpdateNotReadyError,
+} from './updater.js';
 
 /** Chi ha inviato il comando. In modalità web la finestra è sempre assente. */
 export type ChannelContext = { readonly window: BrowserWindow | undefined };
@@ -60,6 +67,8 @@ type Handlers = { readonly [TChannel in IpcChannel]: Handler<TChannel> };
 
 const EXTERNAL_PROTOCOLS: readonly string[] = ['http:', 'https:'];
 const WINDOW_UNAVAILABLE_MESSAGE = 'nessuna finestra per questo comando';
+/* Il renderer non è fidato: un numero di pagina senza limite si inoltrerebbe a WeBeep così com'è. Il tetto rifiuta i valori anomali prima della chiamata. */
+const MAX_SEARCH_PAGE = 1000;
 
 class InvalidSearchRequestError extends Error {
   override readonly name = 'InvalidSearchRequestError';
@@ -77,7 +86,7 @@ const parseSearchQuery = (raw: unknown): string => {
 };
 
 const parseSearchPage = (raw: unknown): number => {
-  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0) {
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0 || raw > MAX_SEARCH_PAGE) {
     throw new InvalidSearchRequestError('Pagina della ricerca non valida');
   }
   return raw;
@@ -177,6 +186,10 @@ const handlers: Handlers = {
 
   'updates:get-state': async () => getUpdateState(),
   'updates:check': async () => checkForUpdates(),
+  'updates:download': async () => {
+    downloadUpdate();
+    return null;
+  },
   'updates:install': async () => {
     installUpdate();
     return null;

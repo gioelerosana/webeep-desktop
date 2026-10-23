@@ -4,7 +4,7 @@
  * cambio arriva con `updates:state-changed` e sostituisce il dato. Nel browser
  * (modalità web) i canali degli aggiornamenti non esistono: la query è disattivata.
  */
-import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { UpdateState } from '../../../shared/ipc';
 import { isWebRenderer } from '../lib/http-bridge';
@@ -18,6 +18,8 @@ export type UpdatesController = {
   /** La lettura iniziale è fallita: l'interfaccia lo dice invece di mostrare un caricamento infinito. */
   readonly readFailed: boolean;
   readonly check: () => void;
+  /** Avvia il download della versione trovata (Windows): l'utente lo chiede con un clic. */
+  readonly download: () => void;
   readonly install: () => void;
   readonly openRelease: () => void;
   /** Messaggio dell'ultima azione andata male, `null` altrimenti. */
@@ -33,12 +35,21 @@ const useUpdateStateQuery = (enabled: boolean): UseQueryResult<UpdateState> =>
     staleTime: Infinity,
   });
 
+/*
+ * Una lettura di `get-state` partita prima dell'evento può arrivare dopo di lui con un valore
+ * vecchio. `cancelQueries` la scarta, così il dato resta quello dell'evento, che è più recente.
+ */
+const applyStateChange = async (queryClient: QueryClient, next: UpdateState): Promise<void> => {
+  await queryClient.cancelQueries({ queryKey: updatesQueryKey });
+  queryClient.setQueryData(updatesQueryKey, next);
+};
+
 const useUpdateStateEvents = (enabled: boolean): void => {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!enabled) return undefined;
     return window.webeep.on('updates:state-changed', (next) => {
-      queryClient.setQueryData(updatesQueryKey, next);
+      void applyStateChange(queryClient, next);
     });
   }, [enabled, queryClient]);
 };
@@ -54,15 +65,17 @@ export const useUpdates = (): UpdatesController => {
     mutationFn: () => invoke('updates:check'),
     onSuccess: (next) => queryClient.setQueryData(updatesQueryKey, next),
   });
+  const download = useMutation({ mutationFn: () => invoke('updates:download') });
   const install = useMutation({ mutationFn: () => invoke('updates:install') });
   const openRelease = useMutation({ mutationFn: () => invoke('updates:open-release') });
 
-  const actionError = [check.error, install.error, openRelease.error].find((error) => error !== null)?.message ?? null;
+  const actionError = [check.error, download.error, install.error, openRelease.error].find((error) => error !== null)?.message ?? null;
 
   return {
     state: stateQuery.data,
     readFailed: stateQuery.isError,
     check: () => check.mutate(),
+    download: () => download.mutate(),
     install: () => install.mutate(),
     openRelease: () => openRelease.mutate(),
     actionError,

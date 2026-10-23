@@ -2,8 +2,9 @@
  * Aggiornamenti dell'app, lato main process.
  *
  * Due modalità, scelte da `detectPlatform`:
- * - Windows (NSIS): electron-updater scarica la nuova versione in background e la
- *   installa alla chiusura, o subito se l'utente sceglie "riavvia e installa".
+ * - Windows (NSIS): electron-updater non scarica né installa da solo. Il download parte
+ *   solo quando l'utente lo chiede (`downloadUpdate`), e l'installazione solo con
+ *   "riavvia e aggiorna" (`installUpdate`): niente installazione alla chiusura.
  * - Linux AppImage: il file in esecuzione non si può sostituire dall'app. electron-updater
  *   serve solo a sapere se esiste una versione nuova (legge `latest-linux.yml`) e l'utente
  *   scarica dalla pagina della release.
@@ -32,6 +33,7 @@ const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`;
 const CHECK_FAILED_MESSAGE = 'impossibile controllare gli aggiornamenti';
 const DOWNLOAD_FAILED_MESSAGE = "impossibile scaricare l'aggiornamento";
 const NOT_READY_MESSAGE = 'nessun aggiornamento pronto da installare';
+const NOT_AVAILABLE_MESSAGE = 'nessun aggiornamento da scaricare';
 
 /* Con uno di questi stati un nuovo controllo sarebbe inutile o farebbe partire un secondo download. `available` è a parte, in `isBusy`. */
 const BUSY_STATUSES: readonly UpdateState['status'][] = ['checking', 'downloading', 'ready'];
@@ -47,7 +49,7 @@ type UpdateRuntime = {
   readonly platform: UpdatePlatform;
 };
 
-/** Installazione richiesta quando lo stato non lo permette: il canale la rende `invalid-input`. */
+/** Azione (download o installazione) richiesta quando lo stato non la permette: il canale la rende `invalid-input`. */
 export class UpdateNotReadyError extends Error {
   override readonly name = 'UpdateNotReadyError';
 }
@@ -73,8 +75,9 @@ const publish = (next: UpdateState): void => {
 const versionOf = (current: UpdateState): string | undefined => ('version' in current ? current.version : undefined);
 
 /*
- * `available` su Windows è già il download in corso o imminente: non si ricontrolla.
- * Su Linux è solo un avviso: un controllo manuale può trovare una release ancora più nuova.
+ * `available` su Windows aspetta il clic dell'utente per scaricare: non si ricontrolla,
+ * così non si perde la versione trovata. Su Linux è solo un avviso: un controllo manuale
+ * può trovare una release ancora più nuova.
  */
 const isBusy = (current: UpdateState): boolean => {
   if (current.status === 'available') return current.mode === 'install';
@@ -95,11 +98,10 @@ const reportFailure = (error: unknown): void => {
   publish({ ...runtime, status: 'error', message: failureMessage(state) });
 };
 
+/* Né download né installazione automatici: su Windows li avvia l'utente; su Linux l'AppImage si sostituisce a mano. */
 const configureAutoUpdater = (): void => {
-  // Linux non scarica né installa: l'AppImage va sostituita a mano dall'utente.
-  const isInstallable = runtime.platform === 'windows';
-  autoUpdater.autoDownload = isInstallable;
-  autoUpdater.autoInstallOnAppQuit = isInstallable;
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
 };
 
 const subscribeToAutoUpdater = (): void => {
@@ -128,14 +130,14 @@ const subscribeToAutoUpdater = (): void => {
 };
 
 /*
- * `checkForUpdates` emette `error` e poi rifiuta la promessa: di solito il rifiuto arriva
- * quando lo stato è già `error` e non si fa nulla. Se invece arriva da solo (eccezione
- * sincrona, nessun evento), lo stato non deve restare su `checking`, che bloccherebbe
- * i controlli successivi.
+ * `checkForUpdates` e `downloadUpdate` emettono `error` e poi rifiutano la promessa: di solito
+ * il rifiuto arriva quando lo stato è già `error` e non si fa nulla. Se invece arriva da solo
+ * (eccezione sincrona, nessun evento), lo stato non deve restare su `checking` o `downloading`,
+ * che bloccherebbero le azioni successive.
  */
-const runCheck = async (): Promise<void> => {
+const runGuarded = async (operation: () => Promise<unknown>): Promise<void> => {
   try {
-    await autoUpdater.checkForUpdates();
+    await operation();
   } catch (error: unknown) {
     if (state.status !== 'error') reportFailure(error);
   }
@@ -160,8 +162,19 @@ export const getUpdateState = (): UpdateState => state;
  */
 export const checkForUpdates = (): UpdateState => {
   if (state.status === 'unsupported' || isBusy(state)) return state;
-  void runCheck();
+  void runGuarded(() => autoUpdater.checkForUpdates());
   return state;
+};
+
+/*
+ * Download della versione trovata, su richiesta dell'utente. Lo stato passa subito a
+ * `downloading` con avanzamento 0, così l'interfaccia non resta ferma prima del primo evento.
+ */
+export const downloadUpdate = (): void => {
+  if (state.status !== 'available' || state.mode !== 'install') throw new UpdateNotReadyError(NOT_AVAILABLE_MESSAGE);
+  const { version } = state;
+  publish({ ...runtime, status: 'downloading', version, percent: 0 });
+  void runGuarded(() => autoUpdater.downloadUpdate());
 };
 
 /** Riavvia e installa l'aggiornamento scaricato. Su Linux non è mai `ready`, quindi rifiuta. */

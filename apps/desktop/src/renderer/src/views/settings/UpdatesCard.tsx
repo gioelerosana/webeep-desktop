@@ -12,7 +12,8 @@ export const UpdatesCard = (): ReactNode => {
 
   const renderBody = (): ReactNode => {
     if (isWeb) return <p className="text-sm text-muted-foreground">Gli aggiornamenti si gestiscono dall'app desktop.</p>;
-    if (updates.readFailed) return <p className="text-sm text-error-foreground">Impossibile leggere lo stato degli aggiornamenti.</p>;
+    // Con un dato già letto un errore di rilettura non cancella lo stato: l'errore si mostra solo senza dati.
+    if (updates.readFailed && !state) return <p className="text-sm text-error-foreground">Impossibile leggere lo stato degli aggiornamenti.</p>;
     if (!state) return <Skeleton className="h-4 w-2/3" />;
     return <UpdateStatusBody state={state} actions={updates} />;
   };

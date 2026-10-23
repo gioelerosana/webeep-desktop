@@ -57,6 +57,11 @@ const MOCK_DOWNLOAD_PERCENT = 40;
 const MOCK_RELEASES_URL = 'https://github.com/gioelerosana/webeep-desktop/releases';
 const UPDATE_CHECK_ERROR_MESSAGE = 'Controllo degli aggiornamenti non riuscito (errore simulato)';
 const UPDATE_NOT_READY_MESSAGE = 'Nessun aggiornamento pronto da installare';
+const UPDATE_NOT_AVAILABLE_MESSAGE = 'Nessun aggiornamento da scaricare';
+/* Il download finto avanza a passi fissi, come il progresso di electron-updater. */
+const DOWNLOAD_STEP_PERCENT = 25;
+const DOWNLOAD_STEP_DELAY_MS = 500;
+const MOCK_FULL_PERCENT = 100;
 const MOCK_NEW_ISSUE_URL = 'https://github.com/gioelerosana/webeep-desktop/issues/new';
 const MOCK_FEEDBACK_TEMPLATE: Record<FeedbackKind, string> = {
   bug: 'bug_report.yml',
@@ -297,6 +302,16 @@ const updateAvailableAfterCheck = (platform: UpdatePlatform): UpdateState => ({
   mode: platform === 'windows' ? 'install' : 'manual',
 });
 
+/* Avanzamento simulato del download: passi a intervalli fissi, poi `ready`. */
+const simulateDownload = (platform: UpdatePlatform, version: string, percent = 0): void => {
+  if (percent >= MOCK_FULL_PERCENT) {
+    setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'ready', version });
+    return;
+  }
+  setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'downloading', version, percent });
+  setTimeout(() => simulateDownload(platform, version, percent + DOWNLOAD_STEP_PERCENT), DOWNLOAD_STEP_DELAY_MS);
+};
+
 /* Stessa regola di `isBusy` nel main: con questi stati un nuovo controllo sarebbe inutile o avvierebbe un secondo download. */
 const BUSY_UPDATE_STATUSES: readonly UpdateState['status'][] = ['checking', 'downloading', 'ready'];
 
@@ -360,6 +375,15 @@ const handlers: MockHandlers = {
     const { platform } = updateState;
     setTimeout(() => setUpdateState(updateAvailableAfterCheck(platform)), UPDATE_CHECK_DELAY_MS);
     return setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'checking' });
+  },
+  // Come il main: il download parte solo su richiesta, da `available` con `mode: install`.
+  'updates:download': () => {
+    if (updateState.status !== 'available' || updateState.mode !== 'install') {
+      throw new MockIpcFailure('invalid-input', UPDATE_NOT_AVAILABLE_MESSAGE);
+    }
+    const { platform, version } = updateState;
+    simulateDownload(platform, version);
+    return null;
   },
   // Nel bridge finto non si riavvia nulla: il log basta a vedere che la chiamata è arrivata.
   'updates:install': () => {

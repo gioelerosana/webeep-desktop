@@ -1,12 +1,12 @@
 import { Button, Spinner } from '@webeep/ui-kit';
-import { ExternalLink, RefreshCw, RotateCw } from 'lucide-react';
+import { Download, ExternalLink, RefreshCw, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { UpdateState } from '../../../../shared/ipc';
 import type { UpdatesController } from '../../layout/useUpdates';
 import { UpdateProgressBar } from './UpdateProgressBar';
 import { formatLastCheck } from './formatLastCheck';
 
-export type UpdateActions = Pick<UpdatesController, 'check' | 'install' | 'openRelease'>;
+export type UpdateActions = Pick<UpdatesController, 'check' | 'download' | 'install' | 'openRelease'>;
 
 export type UpdateStatusBodyProps = {
   readonly state: UpdateState;
@@ -29,7 +29,7 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
           ) : null}
         </div>
         <Button variant="outline" size="sm" icon={<RefreshCw />} onClick={actions.check}>
-          controlla aggiornamenti
+          Controlla aggiornamenti
         </Button>
       </div>
     );
@@ -44,11 +44,14 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
     );
   }
 
+  // Su Windows la versione aspetta il clic: il download non parte da solo.
   if (state.status === 'available' && state.mode === 'install') {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner />
-        versione {state.version} disponibile, download in corso
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm">versione {state.version} disponibile</p>
+        <Button size="sm" icon={<Download />} onClick={actions.download}>
+          Scarica aggiornamento
+        </Button>
       </div>
     );
   }
@@ -61,10 +64,10 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
           <div className="flex flex-wrap items-center gap-2">
             {/* Il controllo serve anche qui: l'utente può riprovare a vedere se è uscita una versione più recente. */}
             <Button variant="outline" size="sm" icon={<RefreshCw />} onClick={actions.check}>
-              controlla aggiornamenti
+              Controlla aggiornamenti
             </Button>
             <Button size="sm" icon={<ExternalLink />} onClick={actions.openRelease}>
-              apri la pagina della versione
+              Apri la pagina della versione
             </Button>
           </div>
         </div>
@@ -92,7 +95,7 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm">versione {state.version} pronta</p>
         <Button size="sm" icon={<RotateCw />} onClick={actions.install}>
-          riavvia e aggiorna
+          Riavvia e aggiorna
         </Button>
       </div>
     );
@@ -103,7 +106,7 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-error-foreground">{state.message}</p>
       <Button variant="outline" size="sm" icon={<RefreshCw />} onClick={actions.check}>
-        riprova
+        Riprova
       </Button>
     </div>
   );
