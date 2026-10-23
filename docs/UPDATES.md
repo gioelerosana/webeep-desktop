@@ -16,7 +16,7 @@ Gli aggiornamenti arrivano dalle GitHub Release di `gioelerosana/webeep-desktop`
 ## Windows (dentro l'app)
 
 - `electron-updater` legge `latest.yml` dalla Release e scarica la nuova versione in
-  background. L'installazione avviene alla chiusura, o subito con "riavvia e installa".
+  background. L'installazione avviene alla chiusura, o subito con "riavvia e aggiorna".
 - Per i download differenziali serve `WeBeep-Desktop-Setup-<versione>-x64.exe.blockmap`,
   che electron-builder genera accanto all'installer.
 - Senza firma del codice, Windows mostra SmartScreen ("Windows ha protetto il PC") alla
