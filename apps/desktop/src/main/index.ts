@@ -8,6 +8,7 @@ import { handleAssetProtocol, registerAssetScheme } from './asset-protocol.js';
 import { restoreSession } from './auth.js';
 import { isDiagnoseMode, runDiagnosis } from './diagnose.js';
 import { registerIpcHandlers } from './handlers.js';
+import { startUpdater } from './updater.js';
 import { isWebMode, startWebServer } from './web-server.js';
 
 const WINDOW_WIDTH = 1280;
@@ -84,6 +85,8 @@ const start = async (): Promise<void> => {
     return;
   }
   createMainWindow();
+  // Dopo la finestra: lo stato degli aggiornamenti arriva alle finestre aperte, e in web/diagnosi non serve.
+  startUpdater();
 
   app.on('activate', () => {
     if (!BrowserWindow.getAllWindows().length) createMainWindow();

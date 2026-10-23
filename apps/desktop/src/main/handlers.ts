@@ -38,6 +38,7 @@ import { downloadFile, InvalidFileRequestError, openFile, revealFile } from './f
 import { LoginCancelledError } from './login-window.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
+import { checkForUpdates, getUpdateState, installUpdate, openReleasePage, UpdateNotReadyError } from './updater.js';
 
 /** Chi ha inviato il comando. In modalità web la finestra è sempre assente. */
 export type ChannelContext = { readonly window: BrowserWindow | undefined };
@@ -99,6 +100,7 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof InvalidPageRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidSearchRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof UpdateNotReadyError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
 };
@@ -161,6 +163,17 @@ const handlers: Handlers = {
     const parent = context.window;
     const picked = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     return picked.canceled ? null : (picked.filePaths[0] ?? null);
+  },
+
+  'updates:get-state': async () => getUpdateState(),
+  'updates:check': async () => checkForUpdates(),
+  'updates:install': async () => {
+    installUpdate();
+    return null;
+  },
+  'updates:open-release': async () => {
+    await openReleasePage();
+    return null;
   },
 
   'window:minimize': async (context) => {
