@@ -13,6 +13,7 @@ import { CourseView } from './views/course/CourseView';
 import { HomeView } from './views/home/HomeView';
 import { LoginView } from './views/login/LoginView';
 import { NotificationsView } from './views/notifications/NotificationsView';
+import { SearchView } from './views/search/SearchView';
 import { SettingsView } from './views/settings/SettingsView';
 
 const assertNever = (value: never): never => {
@@ -23,6 +24,7 @@ const renderRoute = (route: Route): ReactNode => {
   if (route.name === 'home') return <HomeView />;
   if (route.name === 'course') return <CourseView key={route.courseId} courseId={route.courseId} />;
   if (route.name === 'notifications') return <NotificationsView />;
+  if (route.name === 'search') return <SearchView />;
   if (route.name === 'settings') return <SettingsView />;
   return assertNever(route);
 };

@@ -10,6 +10,7 @@ export type Route =
   | { readonly name: 'home' }
   | { readonly name: 'course'; readonly courseId: number }
   | { readonly name: 'notifications' }
+  | { readonly name: 'search' }
   | { readonly name: 'settings' };
 
 type NavigationContextValue = {
