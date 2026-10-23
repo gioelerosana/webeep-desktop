@@ -13,12 +13,17 @@ delle funzioni disponibili:
 |---|---|---|
 | `tool_mobile_get_public_config` (AJAX senza login) | `getPublicConfig` | verifica servizio mobile e tipo di login |
 | `core_webservice_get_site_info` | `getSiteInfo` | utente corrente, verifica token |
-| `core_course_get_enrolled_courses_by_timeline_classification` | `getCourses` | corsi (in corso, passati, futuri, preferiti) |
+| `core_course_get_enrolled_courses_by_timeline_classification` | `getCourses` | corsi iscritti per classificazione: `inprogress`, `past`, `future`, `favourites`, `hidden`, `all` |
 | `core_course_get_contents` | `getCourseContents` | sezioni, moduli, file di un corso |
 | `core_calendar_get_action_events_by_timesort` | `getUpcomingEvents` | scadenze (sequenza temporale) |
 | `message_popup_get_popup_notifications` | `getNotifications` | notifiche |
 | `core_message_mark_notification_read` | `markNotificationRead` | segna una notifica come letta |
 | `mod_page_get_pages_by_courses` | `getPages` | pagine (`mod_page`) di uno o più corsi: HTML e file allegati |
+| `core_course_search_courses` | `searchCourses` | ricerca nel catalogo (`criterianame=search`, pagina da 0, `limittoenrolled=0`): anche corsi a cui non si è iscritti |
+
+La ricerca restituisce `{ total, courses }` con `total` sul totale di tutte le
+pagine. I corsi non iscritti non si possono aprire nell'app: `core_course_get_contents`
+risponde `errorcoursecontextnotvalid`, quindi l'interfaccia li apre solo nel browser.
 
 ## Candidate per le prossime feature
 
@@ -29,7 +34,6 @@ delle funzioni disponibili:
 | `mod_assign_get_assignments`, `mod_assign_get_submission_status` | stato consegne |
 | `gradereport_user_get_grade_items` | voti |
 | `core_calendar_get_calendar_monthly_view` | calendario mensile |
-| `core_course_search_courses` | ricerca corsi |
 | `core_files_get_files` | cartelle (`mod_folder`) |
 
 ## Aggiungere una funzione

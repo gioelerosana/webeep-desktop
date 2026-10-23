@@ -11,11 +11,13 @@ import {
   courseContentsSchema,
   coursesByTimelineSchema,
   pagesByCoursesSchema,
+  courseSearchResponseSchema,
   popupNotificationsSchema,
   publicConfigSchema,
   siteInfoSchema,
   type CalendarEvent,
   type Course,
+  type CourseSearchPage,
   type CourseSection,
   type CourseTimelineClassification,
   type NotificationsPage,
@@ -91,6 +93,29 @@ export const getNotifications = (client: MoodleClient, options: NotificationsOpt
     'message_popup_get_popup_notifications',
     { useridto: options.userId, limit: options.limit ?? DEFAULT_NOTIFICATIONS_LIMIT, offset: options.offset ?? 0 },
     popupNotificationsSchema,
+  );
+
+export type CourseSearchOptions = {
+  readonly query: string;
+  readonly page: number;
+  readonly perPage: number;
+};
+
+/**
+ * Ricerca nel catalogo dei corsi, anche tra quelli a cui l'utente non è iscritto.
+ * `limittoenrolled: 0` è il default di Moodle e lo si esplicita per non dipenderne.
+ */
+export const searchCourses = (client: MoodleClient, options: CourseSearchOptions): Promise<CourseSearchPage> =>
+  client.call(
+    'core_course_search_courses',
+    {
+      criterianame: 'search',
+      criteriavalue: options.query,
+      page: options.page,
+      perpage: options.perPage,
+      limittoenrolled: 0,
+    },
+    courseSearchResponseSchema,
   );
 
 export const markNotificationRead = async (client: MoodleClient, notificationId: number): Promise<void> => {

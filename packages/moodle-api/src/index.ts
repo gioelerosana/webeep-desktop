@@ -10,6 +10,8 @@ export {
   getSiteInfo,
   getUpcomingEvents,
   markNotificationRead,
+  searchCourses,
+  type CourseSearchOptions,
   type NotificationsOptions,
   type UpcomingEventsOptions,
 } from './endpoints.js';
@@ -20,6 +22,8 @@ export {
   type CalendarEvent,
   type Course,
   type CourseModule,
+  type CourseSearchPage,
+  type CourseSearchResult,
   type CourseSection,
   type CourseTimelineClassification,
   type ModuleContent,
