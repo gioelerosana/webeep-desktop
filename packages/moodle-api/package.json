@@ -1,6 +1,6 @@
 {
   "name": "@webeep/moodle-api",
-  "version": "0.0.1",
+  "version": "26.1.0",
   "license": "MIT",
   "private": true,
   "type": "module",
