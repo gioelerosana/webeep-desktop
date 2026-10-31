@@ -62,44 +62,13 @@ anche la stringa nello script e lo stesso glob.
 
 ## Pubblicare una release
 
-1. Alza `version` in `apps/desktop/package.json` (per esempio `0.2.0`). È il numero che
-   electron-builder mette nei nomi dei file e in `latest*.yml`, ed è quello che il workflow
-   verifica. Alza anche `version` nel `package.json` della radice, così restano uguali.
-2. Porta la modifica su `main` con il flusso del repo.
-3. Crea il tag con lo stesso numero, `vX.Y.Z`, sul commit di `main`, e fai il push del tag:
-   `git tag vX.Y.Z && git push origin vX.Y.Z`. Il push del tag avvia
-   `.github/workflows/release.yml`.
-4. Il job `version-check` confronta il tag con `apps/desktop/package.json`. Se non
-   coincidono, il workflow si ferma prima della build: nessun artefatto, nessuna Release.
-   Lo stesso job verifica che il commit del tag sia contenuto in `main`: un tag su un
-   commit che non è in `main` si ferma con l'errore «il tag deve puntare a un commit già
-   unito in main».
-5. Il workflow builda l'AppImage (con update information e `.zsync`) e l'installer
-   Windows, poi crea la Release con: `*.AppImage`, `*.AppImage.zsync`, `*.exe`,
-   `*.exe.blockmap`, `latest*.yml`.
-6. Controlla la Release: devono esserci tutti e cinque i tipi di file, e `latest-linux.yml`
-   deve indicare l'AppImage nuova.
+La release si lancia a mano con il workflow `release-manual.yml` (Actions → Release manuale,
+solo da `main`). Numerazione, checklist, release di emergenza e prerequisiti sul repository
+sono in [RELEASE.md](RELEASE.md).
 
-Il dispatch manuale del workflow costruisce solo gli artefatti, senza creare la Release.
-Su dispatch il controllo di versione è saltato.
-
-**Permessi del workflow.** Il workflow ha `contents: read` a livello generale. Solo il job
-`release`, che crea la Release, ha `contents: write`. Il build e il controllo di versione
-girano con i permessi minimi.
-
-**Azioni fissate a hash.** Ogni `uses:` di un'azione di terze parti punta a un commit
-completo di 40 caratteri, con la versione in commento (`# v4.4.0`). Un tag come `v4` può
-essere spostato da chi mantiene l'azione, un commit no. Per aggiornare un'azione si
-risolve il nuovo tag, si sostituisce l'hash e si aggiorna il commento con la stessa versione.
-
-**Protezione dei tag.** I tag `v*` sono già protetti da due ruleset del repository: la
-creazione è riservata agli admin, e il tag non si può né spostare né cancellare, nemmeno
-dall'admin. Per correggere un tag sbagliato bisogna disattivare temporaneamente il ruleset
-«tag di rilascio: immutabili» da Settings → Rules. Il tag va creato dopo il merge della PR,
-sul commit di `main`: `git tag vX.Y.Z <commit di main> && git push origin vX.Y.Z`.
-
-Non caricare file a mano: senza `.zsync` il manager zsync non trova l'aggiornamento, e
-senza `latest*.yml` l'app non vede la versione nuova.
+Ogni Release contiene cinque tipi di file: `*.AppImage`, `*.AppImage.zsync`, `*.exe`,
+`*.exe.blockmap` e `latest*.yml`. Senza `.zsync` il manager zsync non trova l'aggiornamento,
+e senza `latest*.yml` l'app non vede la versione nuova: non caricare file a mano.
 
 ## Provare lo script in locale
 

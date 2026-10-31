@@ -1,0 +1,20 @@
+# Passi comuni ai job di release: pnpm dal campo `packageManager`, Node 22 con cache
+# dello store pnpm e installazione delle dipendenze. Le azioni sono fissate a commit
+# come in release.yml (docs/RELEASE.md, azioni fissate a hash).
+name: Setup pnpm e dipendenze
+description: Installa pnpm, Node 22 e le dipendenze del workspace
+
+runs:
+  using: composite
+  steps:
+    # pnpm va installato prima di setup-node, altrimenti la cache pnpm non trova il binario.
+    # Senza `version` legge il campo `packageManager` del package.json root.
+    - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - shell: bash
+      run: pnpm install --frozen-lockfile
