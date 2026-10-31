@@ -1,7 +1,7 @@
 import { cn } from '@webeep/ui-kit';
 import { GraduationCap } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { fallbackGradientOf } from './courseBanner';
+import { fallbackGradientOf } from './courseBannerStyle';
 
 export type CourseBannerFallbackProps = {
   readonly courseId: number;

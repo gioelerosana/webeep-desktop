@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { bannerSourceOf } from './courseBanner';
+import { bannerSourceOf } from './courseBannerStyle';
 
 export type CourseBannerState = {
   /** Sorgente dell'immagine; `undefined` quando va mostrato il ripiego. */
