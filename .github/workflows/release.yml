@@ -1,6 +1,14 @@
-# Release automatica: al push di un tag di versione `v*` builda l'AppImage Linux e
-# l'installer Windows (NSIS) e li pubblica in una GitHub Release. Nessuna firma del codice.
-# Il dispatch manuale costruisce solo gli artefatti (utile per provare): non crea la Release.
+# Release: builda l'AppImage Linux e l'installer Windows (NSIS) e li pubblica in una
+# GitHub Release. Nessuna firma del codice.
+#
+# Parte in tre modi:
+#   - richiamato da release-manual.yml, con l'input `tag` appena creato: è il percorso normale;
+#   - al push di un tag `v*` fatto a mano da un admin (release di emergenza, docs/RELEASE.md);
+#   - a mano da GitHub (Actions › Release › Run workflow): costruisce gli artefatti e non
+#     pubblica la Release, anche se il lancio parte da un ref di tipo tag.
+#
+# Il checkout usa sempre il tag, mai il commit di partenza: quando è richiamato, il
+# `github.sha` del chiamante è il commit di main prima del commit di release.
 name: Release
 
 on:
@@ -8,54 +16,59 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag di versione da compilare e pubblicare (es. v26.1.0)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+env:
+  # Tag da rilasciare: l'input quando il workflow è richiamato (lì `github` è il contesto del
+  # chiamante, non il tag), altrimenti il tag pushato. Vuoto nei lanci manuali su un branch.
+  RELEASE_TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name || '') }}
+
 jobs:
-  # Prima di costruire: un tag `v*` che non coincide con la versione del package produrrebbe
+  # Prima di costruire: un tag che non coincide con la versione dei manifest produrrebbe
   # artefatti e Release con un numero sbagliato, e un tag su un commit fuori da main
-  # pubblicherebbe codice non revisionato. Su dispatch manuale i controlli sono saltati.
-  version-check:
+  # pubblicherebbe codice non revisionato. Nei lanci manuali su branch i controlli sul tag sono saltati.
+  verify:
     runs-on: ubuntu-latest
     steps:
-      # fetch-depth 0: il controllo sul tag deve vedere la storia di main, non solo il commit.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.tag || github.ref }}
+          # fetch-depth 0: il controllo sul tag deve vedere la storia di main, non solo il commit.
           fetch-depth: 0
 
       - name: Il tag deve puntare a un commit già unito in main
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          COMMIT_SHA: ${{ github.sha }}
-          REF_NAME: ${{ github.ref_name }}
+        if: env.RELEASE_TAG != ''
         run: |
+          tag_commit="$(git rev-parse HEAD)"
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          if ! git merge-base --is-ancestor "$COMMIT_SHA" origin/main; then
-            echo "::error::Il tag deve puntare a un commit già unito in main: $REF_NAME punta a $COMMIT_SHA, che non è in main."
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "::error::Il tag deve puntare a un commit già unito in main: $RELEASE_TAG punta a $tag_commit, che non è in main."
             exit 1
           fi
           echo "Il commit del tag è contenuto in main."
 
-      - name: Versione del tag e del package
-        env:
-          REF: ${{ github.ref }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          if [[ "$REF" != refs/tags/v* ]]; then
-            echo "Nessun tag di versione ($REF): controllo della versione saltato."
-            exit 0
-          fi
-          TAG_VERSION="${REF_NAME#v}"
-          PACKAGE_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
-          if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
-            echo "::error::Il tag $REF_NAME non corrisponde alla versione di apps/desktop/package.json ($PACKAGE_VERSION). Allinea la versione prima di taggare."
-            exit 1
-          fi
-          echo "Versione verificata: $PACKAGE_VERSION"
+      - uses: ./.github/actions/setup
+
+      - name: Versione del tag e dei manifest
+        if: env.RELEASE_TAG != ''
+        run: node scripts/check-release-version.mjs "$RELEASE_TAG"
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
 
   build:
-    needs: version-check
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -70,17 +83,10 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      # pnpm va installato prima di setup-node, altrimenti la cache pnpm non trova il binario.
-      # Senza `version` legge il campo `packageManager` del package.json root.
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
-          cache: pnpm
+          ref: ${{ inputs.tag || github.ref }}
 
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Build (typecheck e bundle electron-vite)
         run: pnpm build
@@ -118,10 +124,12 @@ jobs:
             apps/desktop/release/latest*.yml
           if-no-files-found: error
 
-  # Unico job con permesso di scrittura: serve solo a creare la Release.
+  # Unico job con permesso di scrittura: serve solo a creare la Release. Parte solo quando è
+  # richiamato con un tag o dal push di un tag `v*`: un workflow_dispatch, anche da un ref di
+  # tipo tag, builda e basta.
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: inputs.tag != '' || (github.event_name == 'push' && github.ref_type == 'tag')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -133,8 +141,11 @@ jobs:
 
       # Il sito della Release deve ospitare anche .zsync e .blockmap: senza, gli aggiornamenti
       # zsync (Linux) e differenziali (Windows) non trovano i file e ricadono sul download completo.
+      # tag_name e name sono espliciti: quando il workflow è richiamato, il ref è quello di main.
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: WeBeep Desktop ${{ env.RELEASE_TAG }}
           files: |
             release-assets/*.AppImage
             release-assets/*.AppImage.zsync
