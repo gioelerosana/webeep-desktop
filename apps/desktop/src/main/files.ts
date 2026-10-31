@@ -26,11 +26,21 @@ const PART_SUFFIX = '.part';
 const MS_PER_SECOND = 1000;
 const MAX_SEGMENT_LENGTH = 120;
 const FALLBACK_SEGMENT = 'senza-nome';
-// Segmento del percorso dei file protetti di Moodle: solo questi richiedono il token (vedi asset-protocol.ts).
+// Segmento del percorso dei file protetti di Moodle: solo questi richiedono il token.
 const PLUGINFILE_MARKER = 'pluginfile.php';
+// Le copertine dei corsi e gli avatar arrivano come `/pluginfile.php/…`, che vuole la sessione del browser:
+// con il token del web service il percorso giusto è `/webservice/pluginfile.php/…` (come i file dei moduli).
+const PLUGINFILE_PATH_PREFIX = '/pluginfile.php/';
+const WEBSERVICE_PLUGINFILE_PATH_PREFIX = '/webservice/pluginfile.php/';
+const IMAGE_CONTENT_TYPE_PREFIX = 'image/';
 
 export class InvalidFileRequestError extends Error {
   override readonly name = 'InvalidFileRequestError';
+}
+
+/** La risposta di WeBeep non ha il tipo atteso (es. una pagina HTML di login o di errore). */
+export class UnexpectedContentError extends Error {
+  override readonly name = 'UnexpectedContentError';
 }
 
 // Caratteri non ammessi nei nomi di file su Windows/Linux/macOS e caratteri di controllo:
@@ -64,11 +74,45 @@ const isUpToDate = async (path: string, timeModified: number | undefined): Promi
   }
 };
 
-const fetchToFile = async (fileUrl: string, destination: string): Promise<void> => {
-  const response = await fetch(authenticatedFileUrl(fileUrl, getActiveToken()));
+const webservicePath = (pathname: string): string =>
+  pathname.startsWith(PLUGINFILE_PATH_PREFIX)
+    ? `${WEBSERVICE_PLUGINFILE_PATH_PREFIX}${pathname.slice(PLUGINFILE_PATH_PREFIX.length)}`
+    : pathname;
+
+/**
+ * URL con cui il main richiede un file di WeBeep. Il token si aggiunge solo ai file protetti e
+ * il risultato è una credenziale: non va mai mostrato, loggato o restituito al renderer.
+ */
+const requestUrlOf = (fileUrl: string): string => {
+  const url = new URL(fileUrl);
+  if (!url.pathname.includes(PLUGINFILE_MARKER)) return fileUrl;
+  url.pathname = webservicePath(url.pathname);
+  return authenticatedFileUrl(url.toString(), getActiveToken());
+};
+
+/** Richiesta a un file di WeBeep: se il sito non risponde con successo è un errore, qualunque sia il tipo. */
+const fetchWebeepFile = async (fileUrl: string): Promise<Response> => {
+  assertWebeepUrl(fileUrl);
+  const response = await fetch(requestUrlOf(fileUrl));
   if (!response.ok || !response.body) {
     throw new MoodleNetworkError(`Download non riuscito (HTTP ${response.status})`, response.status);
   }
+  return response;
+};
+
+/**
+ * Un'immagine di WeBeep ha un Content-Type `image/*`. Una pagina HTML (login o errore) va scartata
+ * qui, così il renderer mostra il suo ripiego invece di un'immagine rotta.
+ */
+const requireImage = async (response: Response): Promise<Response> => {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  if (contentType.startsWith(IMAGE_CONTENT_TYPE_PREFIX)) return response;
+  await response.body?.cancel();
+  throw new UnexpectedContentError("La risposta di WeBeep non è un'immagine");
+};
+
+const fetchToFile = async (fileUrl: string, destination: string): Promise<void> => {
+  const response = await fetchWebeepFile(fileUrl);
   await mkdir(dirname(destination), { recursive: true });
   const partial = `${destination}${PART_SUFFIX}`;
   try {
@@ -113,23 +157,26 @@ export type WebeepFileStream = {
   readonly body: Readable;
 };
 
+const toWebeepFileStream = (response: Response): WebeepFileStream => ({
+  contentType: response.headers.get('content-type') ?? undefined,
+  // Stesso cast di `fetchToFile`: `fetchWebeepFile` ha già escluso il corpo assente.
+  body: Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
+});
+
 /**
  * Apre lo stream di un file di WeBeep senza scaricarlo su disco. Accetta solo URL di
  * WeBeep. Il token si aggiunge solo ai file protetti e non esce da questa funzione:
  * chi riceve lo stream vede solo il contenuto e il Content-Type.
  */
-export const openWebeepFile = async (fileUrl: string): Promise<WebeepFileStream> => {
-  assertWebeepUrl(fileUrl);
-  const isProtected = new URL(fileUrl).pathname.includes(PLUGINFILE_MARKER);
-  const response = await fetch(isProtected ? authenticatedFileUrl(fileUrl, getActiveToken()) : fileUrl);
-  if (!response.ok || !response.body) {
-    throw new MoodleNetworkError(`Download non riuscito (HTTP ${response.status})`, response.status);
-  }
-  return {
-    contentType: response.headers.get('content-type') ?? undefined,
-    // Stesso cast di `fetchToFile`: il ReadableStream di fetch è quello di node:stream/web a runtime.
-    body: Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
-  };
-};
+export const openWebeepFile = async (fileUrl: string): Promise<WebeepFileStream> =>
+  toWebeepFileStream(await fetchWebeepFile(fileUrl));
+
+/** Risposta di un'immagine di WeBeep (copertina, avatar, icona), da restituire al protocollo `webeep-asset://`. */
+export const fetchWebeepImage = async (fileUrl: string): Promise<Response> =>
+  requireImage(await fetchWebeepFile(fileUrl));
+
+/** Come `openWebeepFile`, ma rifiuta le risposte che non sono immagini. */
+export const openWebeepImage = async (fileUrl: string): Promise<WebeepFileStream> =>
+  toWebeepFileStream(await fetchWebeepImage(fileUrl));
 
 export const revealFile = (path: string): void => shell.showItemInFolder(path);

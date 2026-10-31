@@ -126,6 +126,12 @@ export type UpdateState = UpdateBase &
     | { readonly status: 'error'; readonly message: string }
   );
 
+/** Cambio di preferito: `courseId` è l'id del corso su WeBeep, `favourite` il nuovo stato. */
+export type CourseFavouriteRequest = {
+  readonly courseId: number;
+  readonly favourite: boolean;
+};
+
 /** Tipo di segnalazione: `bug` per un problema, `feature` per una proposta. */
 export type FeedbackKind = 'bug' | 'feature';
 
@@ -169,6 +175,12 @@ export type IpcContract = {
   'moodle:mark-all-notifications-read': { readonly args: []; readonly result: null };
   /** Ricerca nel catalogo, anche tra corsi a cui l'utente non è iscritto. Errore `invalid-input` se query o pagina non sono valide. */
   'moodle:searchCourses': { readonly args: [request: CourseSearchRequest]; readonly result: CourseSearchPage };
+  /**
+   * Mette (`favourite: true`) o toglie un corso dai preferiti di WeBeep. È una scrittura sul sito:
+   * parte solo da un'azione esplicita dell'utente (regola 8 di AGENTS.md). Errore `invalid-input`
+   * se l'id o il flag non sono validi, `moodle` se Moodle rifiuta il cambio.
+   */
+  'moodle:set-course-favourite': { readonly args: [request: CourseFavouriteRequest]; readonly result: null };
   /** Pagina `mod_page` di un corso. Errore `invalid-input` se il modulo non è una pagina di quel corso. */
   'course:page': { readonly args: [request: CoursePageRequest]; readonly result: CoursePage };
 

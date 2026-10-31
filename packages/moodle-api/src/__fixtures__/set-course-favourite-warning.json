@@ -1,0 +1,10 @@
+{
+  "warnings": [
+    {
+      "item": "course",
+      "itemid": 999,
+      "warningcode": "invalidcourse",
+      "message": "Corso non trovato o non accessibile"
+    }
+  ]
+}

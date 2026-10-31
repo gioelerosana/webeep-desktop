@@ -21,6 +21,7 @@ delle funzioni disponibili:
 | `core_message_mark_all_notifications_as_read` | `markAllNotificationsRead` | segna come lette tutte le notifiche dell'utente (`useridto`; senza filtri su mittente e data; risposta `true`) |
 | `mod_page_get_pages_by_courses` | `getPages` | pagine (`mod_page`) di uno o più corsi: HTML e file allegati |
 | `core_course_search_courses` | `searchCourses` | ricerca nel catalogo (`criterianame=search`, pagina da 0, `limittoenrolled=0`): anche corsi a cui non si è iscritti |
+| `core_course_set_favourite_courses` | `setCourseFavourite` | **scrittura, solo su azione dell'utente**: mette o toglie un corso dai preferiti (`courses[0][id]`, `courses[0][favourite]` 1/0). Risposta solo `warnings`: una lista non vuota diventa `MoodleApiError` |
 
 La ricerca restituisce `{ total, courses }` con `total` sul totale di tutte le
 pagine. Per i corsi non iscritti si prevede che `core_course_get_contents` risponda
@@ -32,6 +33,13 @@ Il primo clic arma il pulsante ("Conferma: segna tutte come lette"), il secondo 
 la chiamata. Annulla, Esc o lo scadere di 4 secondi disarmano senza chiamare WeBeep.
 Lo schema accetta solo `true` come risposta: un'altra risposta diventa errore di forma.
 Anche il valore `true` va verificato su WeBeep reale.
+
+**Preferiti** (`core_course_set_favourite_courses`) scrive su WeBeep: la chiamata parte solo
+dal pulsante della stella, su azione dell'utente. Il canale è `moodle:set-course-favourite`
+(`{ courseId, favourite }`); il renderer usa `useSetCourseFavourite`, con aggiornamento
+ottimistico delle liste in cache e rollback in caso di errore. Moodle risponde con
+`warnings`: una lista non vuota diventa `MoodleApiError`, così un rifiuto non sembra un
+successo. La risposta reale (warning compresi) va verificata su WeBeep reale.
 
 ## Candidate per le prossime feature
 

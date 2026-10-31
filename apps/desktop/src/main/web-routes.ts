@@ -12,7 +12,7 @@ import { pipeline } from 'node:stream/promises';
 import { WEBEEP_SITE_URL } from '@webeep/moodle-api';
 import { z } from 'zod';
 import { WEB_UNAVAILABLE_CHANNELS, type IpcArgs, type IpcChannel, type IpcResult } from '../shared/ipc.js';
-import { openWebeepFile, sanitizeSegment } from './files.js';
+import { openWebeepFile, openWebeepImage, sanitizeSegment } from './files.js';
 import { isIpcChannel, runChannel } from './handlers.js';
 import {
   fileHeaders,
@@ -98,7 +98,7 @@ const handleAsset = async (req: IncomingMessage, res: ServerResponse, url: URL):
   if (req.method !== 'GET') return sendText(res, HTTP_METHOD_NOT_ALLOWED, 'Metodo non ammesso');
   const raw = url.searchParams.get('url');
   if (!isWebeepFileUrl(raw)) return sendText(res, HTTP_FORBIDDEN, 'URL non ammesso');
-  const file = await openWebeepFile(raw);
+  const file = await openWebeepImage(raw);
   res.writeHead(HTTP_OK, fileHeaders(file.contentType));
   await pipeline(file.body, res);
 };

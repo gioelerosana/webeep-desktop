@@ -14,7 +14,7 @@ import { createServer, type IncomingMessage, type RequestListener, type Server, 
 import { networkInterfaces } from 'node:os';
 import { MoodleNetworkError } from '@webeep/moodle-api';
 import { NotSignedInError } from './auth.js';
-import { InvalidFileRequestError } from './files.js';
+import { InvalidFileRequestError, UnexpectedContentError } from './files.js';
 import { handleApiRequest } from './web-routes.js';
 import {
   HTTP_BAD_GATEWAY,
@@ -117,7 +117,9 @@ const respondWithError = (res: ServerResponse, error: unknown): void => {
   }
   if (error instanceof NotSignedInError) return sendText(res, HTTP_UNAUTHORIZED, SIGNED_OUT_TEXT);
   if (error instanceof InvalidFileRequestError) return sendText(res, HTTP_FORBIDDEN, 'URL non ammesso');
-  if (error instanceof MoodleNetworkError) return sendText(res, HTTP_BAD_GATEWAY, 'File non disponibile su WeBeep');
+  if (error instanceof MoodleNetworkError || error instanceof UnexpectedContentError) {
+    return sendText(res, HTTP_BAD_GATEWAY, 'File non disponibile su WeBeep');
+  }
   console.error(`${LOG_PREFIX} errore: ${describeError(error)}`);
   sendText(res, HTTP_INTERNAL_ERROR, 'Richiesta non riuscita');
 };

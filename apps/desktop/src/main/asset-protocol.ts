@@ -7,13 +7,12 @@
  * WeBeep, così il protocollo non diventa un proxy verso host arbitrari.
  */
 import { protocol } from 'electron';
-import { authenticatedFileUrl, WEBEEP_SITE_URL } from '@webeep/moodle-api';
+import { WEBEEP_SITE_URL } from '@webeep/moodle-api';
 import { ASSET_SCHEME } from '../shared/ipc.js';
-import { getActiveToken } from './auth.js';
+import { fetchWebeepImage } from './files.js';
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_FORBIDDEN = 403;
-const PLUGINFILE_MARKER = 'pluginfile.php';
 
 /** Va chiamata prima di `app.ready`. */
 export const registerAssetScheme = (): void => {
@@ -34,13 +33,9 @@ export const handleAssetProtocol = (): void => {
     const target = resolveTarget(request.url);
     if (!target) return new Response('URL non ammesso', { status: HTTP_FORBIDDEN });
     try {
-      // I file protetti (pluginfile) vogliono il token; le immagini pubbliche (icone del tema) no.
-      const url = target.pathname.includes(PLUGINFILE_MARKER)
-        ? authenticatedFileUrl(target.toString(), getActiveToken())
-        : target.toString();
-      return await fetch(url);
+      return await fetchWebeepImage(target.toString());
     } catch {
-      // Sessione assente o rete giù: l'<img> mostrerà il suo fallback.
+      // Sessione assente, rete giù o risposta che non è un'immagine: l'<img> mostrerà il suo fallback.
       return new Response('Asset non disponibile', { status: HTTP_BAD_REQUEST });
     }
   });

@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { callPublicAjax, type FetchLike, type MoodleClient } from './client.js';
+import { MoodleApiError } from './errors.js';
 import {
   actionEventsSchema,
   courseContentsSchema,
@@ -15,6 +16,7 @@ import {
   markAllNotificationsReadSchema,
   popupNotificationsSchema,
   publicConfigSchema,
+  setFavouriteCoursesSchema,
   siteInfoSchema,
   type CalendarEvent,
   type Course,
@@ -134,6 +136,25 @@ export const markNotificationRead = async (client: MoodleClient, notificationId:
  */
 export const markAllNotificationsRead = async (client: MoodleClient, userId: number): Promise<void> => {
   await client.call('core_message_mark_all_notifications_as_read', { useridto: userId }, markAllNotificationsReadSchema);
+};
+
+const SET_FAVOURITE_FUNCTION = 'core_course_set_favourite_courses';
+
+/**
+ * Mette (`favourite: true`) o toglie (`false`) un corso dai preferiti di WeBeep.
+ *
+ * Scrittura su WeBeep: si chiama solo da un'azione esplicita dell'utente (AGENTS.md, regola 8).
+ * Moodle risponde 200 con `warnings` anche quando non applica il cambio: un warning
+ * diventa `MoodleApiError`, così un "no" non sembra un "sì".
+ */
+export const setCourseFavourite = async (client: MoodleClient, courseId: number, favourite: boolean): Promise<void> => {
+  const result = await client.call(
+    SET_FAVOURITE_FUNCTION,
+    { courses: [{ id: courseId, favourite }] },
+    setFavouriteCoursesSchema,
+  );
+  const [warning] = result.warnings;
+  if (warning) throw new MoodleApiError(warning.warningcode, warning.message, SET_FAVOURITE_FUNCTION);
 };
 
 /**

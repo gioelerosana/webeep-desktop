@@ -12,6 +12,7 @@ export {
   markAllNotificationsRead,
   markNotificationRead,
   searchCourses,
+  setCourseFavourite,
   type CourseSearchOptions,
   type NotificationsOptions,
   type UpcomingEventsOptions,
