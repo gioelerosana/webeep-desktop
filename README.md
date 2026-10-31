@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/gioelerosana/webeep-desktop/releases"><img src="https://img.shields.io/github/v/release/gioelerosana/webeep-desktop" alt="Ultima release"></a>
-  <img src="https://img.shields.io/badge/licenza-MIT-3b6cf6" alt="Licenza MIT">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licenza-MIT-3b6cf6" alt="Licenza MIT"></a>
   <img src="https://img.shields.io/badge/piattaforme-Windows%20%C2%B7%20Linux-24252b" alt="Windows, Linux">
 </p>
 
@@ -118,4 +118,4 @@ Documentazione tecnica:
 
 ## Licenza
 
-MIT.
+Il progetto è distribuito con licenza MIT. Il testo completo è in [LICENSE](LICENSE).
