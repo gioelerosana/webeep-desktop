@@ -34,6 +34,8 @@ const DEFAULT_LIMIT = 50;
 const UNREAD_COUNT = 1;
 const HTTP_OK = 200;
 const FILE_URL = `${SITE_URL}/pluginfile.php/1/mod_resource/content/1/dispensa.pdf`;
+const COURSE_IMAGE_URL = `${SITE_URL}/pluginfile.php/101/course/overviewfiles/am1.jpg`;
+const SVG_COURSE_IMAGE = 'data:image/svg+xml;base64,PHN2Zy8+';
 const DEFAULT_CLASSIFICATION = 'inprogress';
 const PAST_CLASSIFICATION = 'past';
 const MARK_ALL_READ_FUNCTION = 'core_message_mark_all_notifications_as_read';
@@ -95,6 +97,25 @@ describe('getCourses', () => {
     expect(inProgress?.isfavourite).toBe(true);
     expect(introductory?.isfavourite).toBe(false);
     expect(introductory?.hidden).toBe(false);
+  });
+
+  it('legge courseimage come URL di WeBeep, e la lascia assente se il corso non ne ha una', async () => {
+    const { client } = clientWith(coursesFixture);
+
+    const [withImage, withoutImage] = await getCourses(client);
+
+    expect(withImage?.courseimage).toBe(COURSE_IMAGE_URL);
+    expect(withoutImage?.courseimage).toBeUndefined();
+  });
+
+  it('conserva il data URI SVG che Moodle genera per i corsi senza immagine', async () => {
+    const { client } = clientWith({
+      courses: [{ id: COURSE_ID, fullname: 'Analisi Matematica I', shortname: 'AM1', courseimage: SVG_COURSE_IMAGE }],
+    });
+
+    const [course] = await getCourses(client);
+
+    expect(course?.courseimage).toBe(SVG_COURSE_IMAGE);
   });
 });
 
