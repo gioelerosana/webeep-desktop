@@ -11,13 +11,13 @@
     "lang": "it"
   },
   "courses": [
-    { "id": 101, "fullname": "ANALISI MATEMATICA 1 [C.I.] [2026-27] (FORMIGGINI MARIA)", "shortname": "AM1-2026", "coursecategory": "Ingegneria Informatica", "progress": 35 },
+    { "id": 101, "fullname": "ANALISI MATEMATICA 1 [C.I.] [2026-27] (FORMIGGINI MARIA)", "shortname": "AM1-2026", "coursecategory": "Ingegneria Informatica", "progress": 35, "isfavourite": true },
     { "id": 102, "fullname": "CHIMICA GENERALE [2026-27] (ROSSI LUCA)", "shortname": "CHIM-2026", "coursecategory": "Ingegneria Informatica", "progress": 50 },
-    { "id": 103, "fullname": "FONDAMENTI DI INFORMATICA (VERDI ANNA)", "shortname": "FOND-INF-2026", "coursecategory": "Ingegneria Informatica", "progress": 20 },
+    { "id": 103, "fullname": "FONDAMENTI DI INFORMATICA (VERDI ANNA)", "shortname": "FOND-INF-2026", "coursecategory": "Ingegneria Informatica", "progress": 20, "isfavourite": true },
     { "id": 104, "fullname": "GEOMETRIA E ALGEBRA LINEARE (NERI PAOLO)", "shortname": "GAL-2026", "coursecategory": "Ingegneria Informatica", "progress": 10 }
   ],
   "pastCourses": [
-    { "id": 105, "fullname": "STORIA DELLA SCIENZA [2025-26] (GALLO CARLO)", "shortname": "SDS-2025", "coursecategory": "Ingegneria Informatica", "progress": 100 },
+    { "id": 105, "fullname": "STORIA DELLA SCIENZA [2025-26] (GALLO CARLO)", "shortname": "SDS-2025", "coursecategory": "Ingegneria Informatica", "progress": 100, "isfavourite": true },
     { "id": 106, "fullname": "PROGRAMMAZIONE I [2024-25] (CONTI SARA)", "shortname": "PROG1-2025", "coursecategory": "Ingegneria Informatica", "progress": 100 },
     { "id": 107, "fullname": "FISICA GENERALE (BIANCHI ELENA)", "shortname": "FIS-2024", "coursecategory": "Ingegneria Informatica", "progress": 100 }
   ],

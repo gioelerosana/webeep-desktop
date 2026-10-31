@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { useNotifications } from '../../lib/queries';
 import { selectRecentNotifications } from './notifications';
 
-const RECENT_NOTIFICATIONS_LIMIT = 5;
+/* Le notifiche sono la sezione principale della Home: più voci visibili senza aprire la pagina dedicata. */
+const RECENT_NOTIFICATIONS_LIMIT = 8;
 
 export type RecentNotificationsState = {
   readonly query: UseQueryResult<NotificationsPage>;
