@@ -21,12 +21,14 @@ import {
   MoodleNetworkError,
   MoodleResponseShapeError,
   searchCourses,
+  setCourseFavourite,
 } from '@webeep/moodle-api';
 import { LaunchTokenError } from '@webeep/moodle-api/auth';
 import {
   COURSE_SEARCH_MAX_QUERY_LENGTH,
   COURSE_SEARCH_MIN_QUERY_LENGTH,
   COURSE_SEARCH_PAGE_SIZE,
+  type CourseFavouriteRequest,
   type IpcArgs,
   type IpcChannel,
   type IpcFailure,
@@ -100,6 +102,21 @@ const parseSearchRequest = (raw: unknown): { readonly query: string; readonly pa
   return { query: parseSearchQuery(raw.query), page: parseSearchPage(raw.page) };
 };
 
+class InvalidFavouriteRequestError extends Error {
+  override readonly name = 'InvalidFavouriteRequestError';
+}
+
+/* Id di corso di WeBeep: intero positivo. Il flag dev'essere un booleano vero, non "1" o 1. */
+const parseFavouriteRequest = (raw: unknown): CourseFavouriteRequest => {
+  if (!isRecord(raw)) throw new InvalidFavouriteRequestError('Richiesta dei preferiti non valida');
+  const { courseId, favourite } = raw;
+  if (typeof courseId !== 'number' || !Number.isSafeInteger(courseId) || courseId <= 0) {
+    throw new InvalidFavouriteRequestError('Id del corso non valido');
+  }
+  if (typeof favourite !== 'boolean') throw new InvalidFavouriteRequestError('Stato dei preferiti non valido');
+  return { courseId, favourite };
+};
+
 class WindowUnavailableError extends Error {
   override readonly name = 'WindowUnavailableError';
 
@@ -116,6 +133,7 @@ const toFailure = (error: unknown): IpcFailure => {
   if (error instanceof InvalidFileRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidPageRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidSearchRequestError) return { kind: 'invalid-input', message: error.message };
+  if (error instanceof InvalidFavouriteRequestError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof UpdateNotReadyError) return { kind: 'invalid-input', message: error.message };
   if (error instanceof InvalidFeedbackRequestError) return { kind: 'invalid-input', message: error.message };
@@ -148,6 +166,12 @@ const handlers: Handlers = {
   },
   'moodle:mark-all-notifications-read': async () => {
     await withClient((client) => markAllNotificationsRead(client, getActiveUser().userid));
+    return null;
+  },
+  // Scrittura sul sito: parte solo da un'azione esplicita dell'utente (AGENTS.md, regola 8).
+  'moodle:set-course-favourite': async (_context, request) => {
+    const { courseId, favourite } = parseFavouriteRequest(request);
+    await withClient((client) => setCourseFavourite(client, courseId, favourite));
     return null;
   },
   'moodle:searchCourses': async (_context, request) => {

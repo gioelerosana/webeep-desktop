@@ -2,6 +2,7 @@ import type { Course } from '@webeep/moodle-api';
 import { Button } from '@webeep/ui-kit';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { FavouriteToggle } from '../../components/favourite/FavouriteToggle';
 import { PageHeader } from '../../layout/Page';
 import { parseCourseName } from '../../lib/format';
 import { courseSubtitle } from './courseContent';
@@ -28,6 +29,7 @@ export const CourseHeader = ({ course, courseId, isRefreshing, onRefresh, fileAc
       description={description}
       actions={
         <>
+          {course ? <FavouriteToggle courseId={course.id} isFavourite={course.isfavourite} /> : null}
           {viewUrl ? <FileStatus state={fileActions.stateOf(viewUrl)} /> : null}
           <Button
             variant="outline"

@@ -223,6 +223,15 @@ export const pagesByCoursesSchema = z.object({
 });
 
 /*
+ * `core_course_set_favourite_courses` risponde solo con i `warnings`: il cambio è
+ * riuscito quando la lista è vuota. Un warning non vuoto va trattato come errore
+ * dal chiamante (vedi `setCourseFavourite`).
+ */
+export const setFavouriteCoursesSchema = z.object({
+  warnings: z.array(moodleWarningSchema).optional().default([]),
+});
+
+/*
  * Ricerca nel catalogo (`core_course_search_courses`). Riguarda anche corsi a cui
  * l'utente non è iscritto: per quelli Moodle non dà progresso né date, quindi
  * il risultato non riusa `courseSchema`.

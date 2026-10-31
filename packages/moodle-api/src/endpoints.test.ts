@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMoodleClient, type FetchLike, type MoodleClient } from './client.js';
-import { MoodleResponseShapeError } from './errors.js';
+import { MoodleApiError, MoodleResponseShapeError } from './errors.js';
 import {
   authenticatedFileUrl,
   getCourseContents,
@@ -9,12 +9,15 @@ import {
   getUpcomingEvents,
   markAllNotificationsRead,
   markNotificationRead,
+  setCourseFavourite,
 } from './endpoints.js';
 import actionEventsFixture from './__fixtures__/action-events.json';
 import courseContentsFixture from './__fixtures__/course-contents.json';
 import courseContentsNullFilepathFixture from './__fixtures__/course-contents-null-filepath.json';
 import coursesFixture from './__fixtures__/courses-by-timeline.json';
 import notificationsFixture from './__fixtures__/popup-notifications.json';
+import setFavouriteOkFixture from './__fixtures__/set-course-favourite-ok.json';
+import setFavouriteWarningFixture from './__fixtures__/set-course-favourite-warning.json';
 
 const SITE_URL = 'https://webeep.polimi.it';
 const TOKEN = 'token-di-prova';
@@ -34,6 +37,11 @@ const FILE_URL = `${SITE_URL}/pluginfile.php/1/mod_resource/content/1/dispensa.p
 const DEFAULT_CLASSIFICATION = 'inprogress';
 const PAST_CLASSIFICATION = 'past';
 const MARK_ALL_READ_FUNCTION = 'core_message_mark_all_notifications_as_read';
+const SET_FAVOURITE_FUNCTION = 'core_course_set_favourite_courses';
+const SET_FAVOURITE_WARNING_CODE = 'invalidcourse';
+const SET_FAVOURITE_WARNING_MESSAGE = 'Corso non trovato o non accessibile';
+const MOODLE_TRUE = '1';
+const MOODLE_FALSE = '0';
 
 type RecordedRequest = { readonly url: string; readonly init: RequestInit };
 
@@ -238,6 +246,48 @@ describe('markAllNotificationsRead', () => {
     const { client } = clientWith(false);
 
     await expect(markAllNotificationsRead(client, USER_ID)).rejects.toBeInstanceOf(MoodleResponseShapeError);
+  });
+});
+
+describe('setCourseFavourite', () => {
+  it('invia courses[0][id] e courses[0][favourite] come 1 per aggiungere', async () => {
+    const { client, requests } = clientWith(setFavouriteOkFixture);
+
+    await setCourseFavourite(client, COURSE_ID, true);
+
+    const form = formOf(requests);
+    expect(form.get('wsfunction')).toBe(SET_FAVOURITE_FUNCTION);
+    expect(form.get('courses[0][id]')).toBe(String(COURSE_ID));
+    expect(form.get('courses[0][favourite]')).toBe(MOODLE_TRUE);
+    expect(form.has('courses')).toBe(false);
+  });
+
+  it('invia favourite come 0 per togliere dai preferiti', async () => {
+    const { client, requests } = clientWith(setFavouriteOkFixture);
+
+    await setCourseFavourite(client, COURSE_ID, false);
+
+    expect(formOf(requests).get('courses[0][favourite]')).toBe(MOODLE_FALSE);
+  });
+
+  it('con warnings vuoti si risolve senza valore', async () => {
+    const { client } = clientWith(setFavouriteOkFixture);
+
+    await expect(setCourseFavourite(client, COURSE_ID, true)).resolves.toBeUndefined();
+  });
+
+  // Moodle risponde 200 con un warning quando non applica il cambio: non deve passare per successo.
+  it('un warning diventa MoodleApiError con il codice di Moodle', async () => {
+    const { client } = clientWith(setFavouriteWarningFixture);
+
+    const error: unknown = await setCourseFavourite(client, COURSE_ID, true).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(MoodleApiError);
+    expect(error).toMatchObject({
+      errorCode: SET_FAVOURITE_WARNING_CODE,
+      wsfunction: SET_FAVOURITE_FUNCTION,
+      message: SET_FAVOURITE_WARNING_MESSAGE,
+    });
   });
 });
 

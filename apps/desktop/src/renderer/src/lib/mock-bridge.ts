@@ -46,6 +46,7 @@ const PDF_EXTENSION = '.pdf';
 const PDF_MIMETYPE = 'application/pdf';
 const BINARY_MIMETYPE = 'application/octet-stream';
 const PAGE_NOT_FOUND_MESSAGE = 'Pagina non trovata in questo corso';
+const MOCK_COURSE_NOT_FOUND_MESSAGE = 'Corso non trovato o non accessibile (errore simulato)';
 /** Una query con questo testo simula un errore del servizio di ricerca. */
 const SEARCH_ERROR_QUERY = 'errore';
 const SEARCH_ERROR_MESSAGE = 'Ricerca non disponibile (errore simulato)';
@@ -101,18 +102,19 @@ const toCourse = (course: FixtureCourse): Course => ({
   viewurl: `${user.siteurl}/course/view.php?id=${course.id}`,
 });
 
-const inProgressCourses: readonly Course[] = fixtures.courses.map(toCourse);
-const pastCourses: readonly Course[] = fixtures.pastCourses.map(toCourse);
-const courses: readonly Course[] = [...inProgressCourses, ...pastCourses];
+// Mutabili: `moodle:set-course-favourite` cambia `isfavourite` come farebbe Moodle, e i preferiti si ricalcolano da qui.
+let inProgressCourses: readonly Course[] = fixtures.courses.map(toCourse);
+let pastCourses: readonly Course[] = fixtures.pastCourses.map(toCourse);
+const allCourses = (): readonly Course[] => [...inProgressCourses, ...pastCourses];
 
 /** Come Moodle: le classificazioni che nelle fixture non hanno corsi restituiscono un elenco vuoto. */
-const coursesByClassification: Record<CourseTimelineClassification, readonly Course[]> = {
-  all: courses,
-  inprogress: inProgressCourses,
-  past: pastCourses,
-  future: [],
-  favourites: courses.filter((course) => course.isfavourite),
-  hidden: [],
+const coursesByClassification: Record<CourseTimelineClassification, () => readonly Course[]> = {
+  all: allCourses,
+  inprogress: () => inProgressCourses,
+  past: () => pastCourses,
+  future: () => [],
+  favourites: () => allCourses().filter((course) => course.isfavourite),
+  hidden: () => [],
 };
 
 const catalog: readonly CourseSearchResult[] = fixtures.catalog;
@@ -176,7 +178,7 @@ const sections: readonly CourseSection[] = fixtures.sections.map((section) => ({
   })),
 }));
 
-const courseById = new Map(courses.map((course) => [course.id, course]));
+const courseById = new Map(allCourses().map((course) => [course.id, course]));
 
 const events: readonly CalendarEvent[] = fixtures.events.map((event) => {
   const course = courseById.get(event.courseId);
@@ -335,7 +337,17 @@ const handlers: MockHandlers = {
   'auth:get-state': () => auth,
   'auth:login': () => setAuth({ status: 'signed-in', user }),
   'auth:logout': () => setAuth({ status: 'signed-out' }),
-  'moodle:courses': (classification = 'inprogress') => coursesByClassification[classification],
+  'moodle:courses': (classification = 'inprogress') => coursesByClassification[classification](),
+  // Come Moodle: un corso fuori dall'elenco dell'utente produce un errore `moodle`; il resto non cambia.
+  'moodle:set-course-favourite': ({ courseId, favourite }) => {
+    if (!allCourses().some((course) => course.id === courseId)) {
+      throw new MockIpcFailure('moodle', MOCK_COURSE_NOT_FOUND_MESSAGE);
+    }
+    const applyFavourite = (course: Course): Course => (course.id === courseId ? { ...course, isfavourite: favourite } : course);
+    inProgressCourses = inProgressCourses.map(applyFavourite);
+    pastCourses = pastCourses.map(applyFavourite);
+    return null;
+  },
   'moodle:course-contents': () => sections,
   'moodle:upcoming-events': () => upcomingEvents,
   'moodle:notifications': () => ({ notifications: [...notifications], unreadcount: notifications.filter((item) => !item.read).length }),
