@@ -22,6 +22,15 @@ export const formatDay = (seconds: number): string => dateFormatter.format(fromU
 export const formatTime = (seconds: number): string => timeFormatter.format(fromUnixSeconds(seconds));
 /** "4 nov, 14:30" */
 export const formatDateTime = (seconds: number): string => dateTimeFormatter.format(fromUnixSeconds(seconds));
+/** "4 nov, 14:30" da un istante ISO 8601 (ultimo controllo degli aggiornamenti, crash). */
+export const formatDateTimeFromIso = (isoDate: string): string => dateTimeFormatter.format(new Date(isoDate));
+
+/** Separatore delle righe di metadati: "PDF · 1,2 MB · 4 nov, 14:30". */
+const META_SEPARATOR = ' · ';
+
+/** Unisce i pezzi presenti di una riga di metadati, senza separatori doppi. */
+export const joinMeta = (parts: readonly (string | null | undefined)[]): string =>
+  parts.filter((part): part is string => Boolean(part)).join(META_SEPARATOR);
 
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3_600;

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { COURSE_SEARCH_MIN_QUERY_LENGTH } from '../../../../shared/ipc';
-import { useCourseSearch, type CourseSearchHit } from '../../lib/queries';
+import { isSearchableQuery, useCourseSearch, type CourseSearchHit } from '../../lib/queries';
 import { useDebouncedValue } from './useDebouncedValue';
 
 /** Pausa di digitazione prima di cercare: evita una richiesta a ogni tasto. */
@@ -61,7 +60,7 @@ export const useCourseSearchView = (): CourseSearchView => {
   const courses = useMemo(() => uniqueCoursesById((pages ?? []).flatMap((page) => page.courses)), [pages]);
   const total = pages?.[0]?.total ?? 0;
   const phase = searchPhaseOf({
-    searchable: debouncedText.trim().length >= COURSE_SEARCH_MIN_QUERY_LENGTH,
+    searchable: isSearchableQuery(debouncedText.trim()),
     hasData: pages !== undefined,
     isError: search.isError,
     total,

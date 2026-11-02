@@ -1,6 +1,7 @@
 import { Button, Card, EmptyState, Skeleton } from '@webeep/ui-kit';
-import { AlertCircle, BellOff } from 'lucide-react';
+import { BellOff } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { QueryErrorState } from '../../components/QueryErrorState';
 import { PageHeader, Page } from '../../layout/Page';
 import { MarkAllReadButton } from './MarkAllReadButton';
 import { NotificationRow } from './NotificationRow';
@@ -27,8 +28,7 @@ export const NotificationsView = (): ReactNode => {
       <Page>
         <PageHeader title="Notifiche" />
         <Card>
-          <EmptyState
-            icon={<AlertCircle />}
+          <QueryErrorState
             title="Impossibile caricare le notifiche"
             action={
               <Button variant="outline" size="sm" onClick={view.retry}>

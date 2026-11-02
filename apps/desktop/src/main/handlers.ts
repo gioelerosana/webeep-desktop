@@ -31,6 +31,7 @@ import {
   type CourseFavouriteRequest,
   type IpcArgs,
   type IpcChannel,
+  type IpcErrorKind,
   type IpcFailure,
   type IpcResult,
   type IpcReturn,
@@ -126,20 +127,35 @@ class WindowUnavailableError extends Error {
   }
 }
 
+/** Costruttore di una classe d'errore: `instanceof` accetta anche la forma astratta. */
+type ErrorClass = abstract new (...args: never[]) => Error;
+
+/**
+ * Errori del main che si traducono sempre nello stesso tipo di `IpcFailure`.
+ * L'ordine non conta (le classi non si estendono tra loro), ma resta quello della
+ * vecchia catena per leggibilità.
+ */
+const FAILURE_KINDS: ReadonlyArray<readonly [ErrorClass, IpcErrorKind]> = [
+  [NotSignedInError, 'auth'],
+  [MoodleNetworkError, 'network'],
+  [LoginCancelledError, 'auth'],
+  [LaunchTokenError, 'auth'],
+  [InvalidFileRequestError, 'invalid-input'],
+  [InvalidPageRequestError, 'invalid-input'],
+  [InvalidSearchRequestError, 'invalid-input'],
+  [InvalidFavouriteRequestError, 'invalid-input'],
+  [WindowUnavailableError, 'invalid-input'],
+  [UpdateNotReadyError, 'invalid-input'],
+  [InvalidFeedbackRequestError, 'invalid-input'],
+  [InvalidCrashReportError, 'invalid-input'],
+  [MoodleResponseShapeError, 'moodle'],
+];
+
 const toFailure = (error: unknown): IpcFailure => {
-  if (error instanceof NotSignedInError) return { kind: 'auth', message: error.message };
+  // Unico errore il cui tipo dipende dall'errore stesso: un token scaduto è `auth`.
   if (error instanceof MoodleApiError) return { kind: error.isAuthError ? 'auth' : 'moodle', message: error.message };
-  if (error instanceof MoodleNetworkError) return { kind: 'network', message: error.message };
-  if (error instanceof LoginCancelledError || error instanceof LaunchTokenError) return { kind: 'auth', message: error.message };
-  if (error instanceof InvalidFileRequestError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof InvalidPageRequestError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof InvalidSearchRequestError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof InvalidFavouriteRequestError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof WindowUnavailableError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof UpdateNotReadyError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof InvalidFeedbackRequestError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof InvalidCrashReportError) return { kind: 'invalid-input', message: error.message };
-  if (error instanceof MoodleResponseShapeError) return { kind: 'moodle', message: error.message };
+  const match = FAILURE_KINDS.find(([errorClass]) => error instanceof errorClass);
+  if (match) return { kind: match[1], message: error instanceof Error ? error.message : String(error) };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
 };
 

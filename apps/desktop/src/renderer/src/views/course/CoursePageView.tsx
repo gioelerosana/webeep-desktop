@@ -2,9 +2,10 @@
  * Vista di una pagina del corso (`mod_page`), dentro la vista corso: il pulsante
  * "Torna al corso" riporta all'elenco. Dati dall'hook di lib/queries; link in PageLink.
  */
-import { Button, EmptyState } from '@webeep/ui-kit';
-import { ArrowLeft, CircleAlert, ExternalLink } from 'lucide-react';
+import { Button } from '@webeep/ui-kit';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { QueryErrorState } from '../../components/QueryErrorState';
 import type { RichLinkRenderer } from '../../components/rich-html/RichLink';
 import { Page } from '../../layout/Page';
 import { useCoursePage } from '../../lib/queries';
@@ -55,8 +56,7 @@ export const CoursePageView = ({
 
       {page.isPending ? <CoursePageSkeleton /> : null}
       {page.isError ? (
-        <EmptyState
-          icon={<CircleAlert />}
+        <QueryErrorState
           title="Impossibile aprire la pagina"
           description={<span className="break-words">{page.error.message}</span>}
           action={

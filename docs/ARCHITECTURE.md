@@ -21,7 +21,8 @@ Vista React ──hook (lib/queries.ts)──▶ invoke(canale) ──preload─
 ```
 
 - Il renderer legge dati **solo** con gli hook di `lib/queries.ts` (TanStack
-  Query: cache, retry, invalidazioni).
+  Query: cache, retry, invalidazioni). I preferiti stanno in `lib/favourites.ts`,
+  riesportati da `queries.ts`.
 - Ogni handler risponde con `IpcResult`; `invoke` lo trasforma in dati o in
   `IpcError` con `kind` (`auth`, `network`, `moodle`, `invalid-input`,
   `unknown`).
@@ -142,8 +143,9 @@ spinti dal server.
 ## Sviluppo dell'interfaccia senza login
 
 In `pnpm dev:web` il renderer gira nel browser e `main.tsx` installa il bridge
-finto (`lib/mock-bridge.ts`, dati in `lib/mock-fixtures.json`) con la stessa
-forma di `WebeepBridge`. Il bridge finto non esiste nella build di produzione.
+finto (`lib/mock-bridge.ts`, con dati e handler in `lib/mock/` e le fixture in
+`lib/mock-fixtures.json`) con la stessa forma di `WebeepBridge`. Il bridge finto
+non esiste nella build di produzione.
 Con `?mock=crash` parte con una segnalazione di crash in attesa, da inviare o ignorare.
 
 ## Segnalazione dei crash
@@ -154,10 +156,12 @@ e `unhandledRejection` del main, `render-process-gone` e `child-process-gone`
 (`main/crash-report.ts`, installato per primo in `main/index.ts`), più gli errori
 del renderer: i listener `error` e `unhandledrejection` e un error boundary in
 `main.tsx`, che li inviano con `crash:record-renderer-error`
-(`components/crash/`). Il renderer registra al più un errore per sessione. Gli avvisi
-benigni di `ResizeObserver` non sono errori: si scartano prima di registrare, così non
-consumano la registrazione unica. Dopo un invio riuscito il banner si aggiorna subito
-(`setOnRendererErrorRecorded` in `main.tsx`), senza riavviare l'app.
+(`components/crash/`). La redazione dei testi sta in `main/crash-sanitize.ts` e la
+persistenza atomica in `main/crash-store.ts`. Il renderer registra al più un errore
+per sessione. Gli avvisi benigni di `ResizeObserver` non sono errori: si scartano
+prima di registrare, così non consumano la registrazione unica. Dopo un invio
+riuscito il banner si aggiorna subito (`setOnRendererErrorRecorded` in `main.tsx`),
+senza riavviare l'app.
 
 Prima di salvare, ogni testo passa da `sanitizeCrashText`: oscura token e parametri
 di query (anche in forma JSON, `"token":"…"`, e `access_token`), e sostituisce il
