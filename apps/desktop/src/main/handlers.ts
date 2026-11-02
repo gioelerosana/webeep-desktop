@@ -46,6 +46,7 @@ import {
 } from './crash-report.js';
 import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
+import { resolveCourseModule } from './notification-context.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
 import {
@@ -160,6 +161,7 @@ const handlers: Handlers = {
   'moodle:upcoming-events': async () => withClient((client) => getUpcomingEvents(client)),
   'moodle:notifications': async () =>
     withClient((client) => getNotifications(client, { userId: getActiveUser().userid })),
+  'moodle:course-module': async (_context, cmid) => withClient((client) => resolveCourseModule(client, cmid)),
   'moodle:mark-notification-read': async (_context, notificationId) => {
     await withClient((client) => markNotificationRead(client, notificationId));
     return null;

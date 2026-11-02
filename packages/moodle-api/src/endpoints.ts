@@ -10,6 +10,7 @@ import { MoodleApiError } from './errors.js';
 import {
   actionEventsSchema,
   courseContentsSchema,
+  courseModuleResponseSchema,
   coursesByTimelineSchema,
   pagesByCoursesSchema,
   courseSearchResponseSchema,
@@ -20,6 +21,7 @@ import {
   siteInfoSchema,
   type CalendarEvent,
   type Course,
+  type CourseModuleContext,
   type CourseSearchPage,
   type CourseSection,
   type CourseTimelineClassification,
@@ -55,6 +57,20 @@ export const getCourses = async (
 
 export const getCourseContents = (client: MoodleClient, courseId: number): Promise<readonly CourseSection[]> =>
   client.call('core_course_get_contents', { courseid: courseId }, courseContentsSchema);
+
+/**
+ * Risolve un `cmid` nel modulo che lo contiene e nel corso a cui appartiene.
+ *
+ * Serve alle notifiche: la loro `contexturl` (per esempio
+ * `https://webeep.polimi.it/mod/forum/view.php?id=9002`) porta solo il `cmid`,
+ * non il corso, e senza corso non si può aprire la risorsa dentro l'app.
+ * Se il modulo non esiste o non è visibile all'utente Moodle risponde con
+ * un'eccezione, che il client converte in `MoodleApiError`.
+ */
+export const getCourseModule = async (client: MoodleClient, cmid: number): Promise<CourseModuleContext> => {
+  const result = await client.call('core_course_get_course_module', { cmid }, courseModuleResponseSchema);
+  return result.cm;
+};
 
 /**
  * Pagine (`mod_page`) dei corsi indicati. Con `courseids` vuoto Moodle

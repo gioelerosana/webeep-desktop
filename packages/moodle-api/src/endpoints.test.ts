@@ -4,6 +4,7 @@ import { MoodleApiError, MoodleResponseShapeError } from './errors.js';
 import {
   authenticatedFileUrl,
   getCourseContents,
+  getCourseModule,
   getCourses,
   getNotifications,
   getUpcomingEvents,
@@ -16,6 +17,8 @@ import courseContentsFixture from './__fixtures__/course-contents.json';
 import courseContentsNullFilepathFixture from './__fixtures__/course-contents-null-filepath.json';
 import coursesFixture from './__fixtures__/courses-by-timeline.json';
 import notificationsFixture from './__fixtures__/popup-notifications.json';
+import notificationsRichFixture from './__fixtures__/popup-notifications-rich.json';
+import courseModuleFixture from './__fixtures__/course-module.json';
 import setFavouriteOkFixture from './__fixtures__/set-course-favourite-ok.json';
 import setFavouriteWarningFixture from './__fixtures__/set-course-favourite-warning.json';
 
@@ -25,6 +28,12 @@ const USER_ID = 1234;
 const COURSE_ID = 101;
 const SECOND_COURSE_ID = 102;
 const NOTIFICATION_ID = 3001;
+const RICH_NOTIFICATION_ID = 3101;
+const SENDER_USER_ID = 42;
+const TIMEREAD_SECONDS = 1725510000;
+const CMID = 9002;
+const MODULE_TYPE = 'forum';
+const MODULE_SECTION = 1;
 const EVENT_NAME = 'Consegna esercizio 1';
 const FILE_SIZE_BYTES = 20480;
 const MS_PER_SECOND = 1000;
@@ -39,6 +48,7 @@ const SVG_COURSE_IMAGE = 'data:image/svg+xml;base64,PHN2Zy8+';
 const DEFAULT_CLASSIFICATION = 'inprogress';
 const PAST_CLASSIFICATION = 'past';
 const MARK_ALL_READ_FUNCTION = 'core_message_mark_all_notifications_as_read';
+const GET_COURSE_MODULE_FUNCTION = 'core_course_get_course_module';
 const SET_FAVOURITE_FUNCTION = 'core_course_set_favourite_courses';
 const SET_FAVOURITE_WARNING_CODE = 'invalidcourse';
 const SET_FAVOURITE_WARNING_MESSAGE = 'Corso non trovato o non accessibile';
@@ -229,6 +239,68 @@ describe('getNotifications', () => {
     expect(page.unreadcount).toBe(UNREAD_COUNT);
     expect(unread).toMatchObject({ id: NOTIFICATION_ID, read: false });
     expect(read?.read).toBe(true);
+  });
+
+  it('conserva corpo, componentlabel, customdata, timeread e useridfrom delle notifiche complete', async () => {
+    const { client } = clientWith(notificationsRichFixture);
+
+    const page = await getNotifications(client, { userId: USER_ID });
+    const [forum, assign] = page.notifications;
+
+    expect(forum?.id).toBe(RICH_NOTIFICATION_ID);
+    expect(forum?.fullmessagehtml).toContain('Mario Rossi');
+    expect(forum?.fullmessage).toContain('Analisi Matematica I');
+    expect(forum?.text).toContain('Forum avvisi');
+    expect(forum?.componentlabel).toBe('Forum');
+    expect(forum?.customdata).toBe('{"cmid":9002,"postid":31}');
+    expect(forum?.useridfrom).toBe(SENDER_USER_ID);
+    expect(forum?.timeread).toBeNull();
+    expect(assign?.timeread).toBe(TIMEREAD_SECONDS);
+  });
+
+  // Le notifiche già viste (senza corpo né customdata) devono continuare a passare.
+  it('una notifica senza i campi nuovi resta valida', async () => {
+    const { client } = clientWith(notificationsFixture);
+
+    const page = await getNotifications(client, { userId: USER_ID });
+    const [unread] = page.notifications;
+
+    expect(unread?.id).toBe(NOTIFICATION_ID);
+    expect(unread?.text).toBeUndefined();
+    expect(unread?.fullmessage).toBeUndefined();
+    expect(unread?.componentlabel).toBeUndefined();
+    expect(unread?.customdata).toBeUndefined();
+    expect(unread?.timeread).toBeUndefined();
+    expect(unread?.useridfrom).toBeUndefined();
+  });
+});
+
+describe('getCourseModule', () => {
+  it('invia cmid e restituisce il corso e il modulo che lo contengono', async () => {
+    const { client, requests } = clientWith(courseModuleFixture);
+
+    const module = await getCourseModule(client, CMID);
+
+    const form = formOf(requests);
+    expect(form.get('wsfunction')).toBe(GET_COURSE_MODULE_FUNCTION);
+    expect(form.get('cmid')).toBe(String(CMID));
+    expect(module).toMatchObject({ id: CMID, course: COURSE_ID, modname: MODULE_TYPE, sectionnum: MODULE_SECTION });
+    expect(module.uservisible).toBe(true);
+  });
+
+  it('accetta una risposta con warnings', async () => {
+    const { client } = clientWith({
+      ...courseModuleFixture,
+      warnings: [{ item: 'cm', itemid: CMID, warningcode: 'unused', message: 'Avviso non bloccante' }],
+    });
+
+    await expect(getCourseModule(client, CMID)).resolves.toMatchObject({ id: CMID });
+  });
+
+  it('una risposta senza cm diventa errore di forma', async () => {
+    const { client } = clientWith({ warnings: [] });
+
+    await expect(getCourseModule(client, CMID)).rejects.toBeInstanceOf(MoodleResponseShapeError);
   });
 });
 

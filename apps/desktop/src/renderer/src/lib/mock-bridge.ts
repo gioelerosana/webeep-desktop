@@ -12,6 +12,7 @@
 import type {
   CalendarEvent,
   Course,
+  CourseModuleContext,
   CourseSearchResult,
   CourseSection,
   CourseTimelineClassification,
@@ -202,18 +203,37 @@ const NO_DEADLINES_PARAM_VALUE = 'none';
 const upcomingEvents: readonly CalendarEvent[] =
   new URLSearchParams(window.location.search).get(DEADLINES_PARAM) === NO_DEADLINES_PARAM_VALUE ? [] : events;
 
-let notifications: readonly MoodleNotification[] = fixtures.notifications.map((item) => ({
+type NotificationFixture = (typeof fixtures.notifications)[number];
+
+/** Notifica di prova: le fixture danno solo il percorso della `contexturl`, qui diventa assoluto. */
+const toNotification = (item: NotificationFixture): MoodleNotification => ({
   id: item.id,
   subject: item.subject,
-  smallmessage: item.subject,
-  fullmessagehtml: `<p>${item.subject}</p>`,
-  contexturl: `${user.siteurl}/mod/forum/discuss.php?d=${item.id}`,
-  contexturlname: 'Apri su WeBeep',
-  component: 'mod_forum',
-  eventtype: 'posts',
+  smallmessage: item.smallmessage,
+  text: item.text,
+  fullmessage: item.fullmessage,
+  fullmessagehtml: item.fullmessagehtml,
+  // `null` come farebbe Moodle: la notifica esiste ma non ha un link da aprire.
+  contexturl: item.contexturlPath === null ? null : `${user.siteurl}${item.contexturlPath}`,
+  contexturlname: item.contexturlName,
+  component: item.component,
+  componentlabel: item.componentlabel,
+  eventtype: item.eventtype,
   timecreated: nowSeconds - item.hoursAgo * HOUR_S,
   read: item.read,
-}));
+});
+
+let notifications: readonly MoodleNotification[] = fixtures.notifications.map(toNotification);
+
+type CourseModuleFixture = (typeof fixtures.courseModules)[number];
+
+/** Contesto del modulo come `core_course_get_course_module`: `null` quando il `cmid` non è nelle fixture. */
+const toCourseModuleContext = (module: CourseModuleFixture): CourseModuleContext => ({
+  ...module,
+  visible: true,
+  uservisible: true,
+  url: `${user.siteurl}/mod/${module.modname}/view.php?id=${module.id}`,
+});
 
 let auth: AuthState =
   new URLSearchParams(window.location.search).get('mock') === SIGNED_OUT_FLAG
@@ -349,6 +369,11 @@ const handlers: MockHandlers = {
     return null;
   },
   'moodle:course-contents': () => sections,
+  // Un `cmid` assente dalle fixture (es. 999999) simula una notifica che punta a un modulo non più risolvibile.
+  'moodle:course-module': (cmid) => {
+    const module = fixtures.courseModules.find((item) => item.id === cmid);
+    return module ? toCourseModuleContext(module) : null;
+  },
   'moodle:upcoming-events': () => upcomingEvents,
   'moodle:notifications': () => ({ notifications: [...notifications], unreadcount: notifications.filter((item) => !item.read).length }),
   // Come il main: il testo è pulito con trim e la pagina parte da 0; l'errore simulato non arriva al filtro.

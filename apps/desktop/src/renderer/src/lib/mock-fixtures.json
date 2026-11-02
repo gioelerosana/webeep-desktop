@@ -119,9 +119,16 @@
     { "id": 503, "name": "Consegna progetto C", "inHours": 72, "courseId": 103, "modulename": "assign" },
     { "id": 504, "name": "Esercitazione 4 è in scadenza", "inHours": 144, "courseId": 104, "modulename": "assign" }
   ],
+  "courseModules": [
+    {"id": 11, "course": 101, "module": 5, "instance": 71, "name": "Avvisi", "modname": "forum", "sectionnum": 0},
+    {"id": 24, "course": 101, "module": 17, "instance": 3, "name": "LEZIONE 1 (teoria)", "modname": "page", "sectionnum": 1},
+    {"id": 32, "course": 101, "module": 20, "instance": 41, "name": "Consegna homework 1", "modname": "assign", "sectionnum": 2}
+  ],
   "notifications": [
-    { "id": 901, "subject": "Nuovo avviso in Analisi Matematica 1: spostamento lezione", "hoursAgo": 2, "read": false },
-    { "id": 902, "subject": "Valutazione disponibile: Homework 0", "hoursAgo": 20, "read": false },
-    { "id": 903, "subject": "Nuovo file in Chimica Generale: Esercizi-03.pdf", "hoursAgo": 50, "read": true }
+    {"id": 901, "subject": "Nuovo avviso in Analisi Matematica 1: spostamento lezione", "component": "mod_forum", "componentlabel": "Forum", "eventtype": "posts", "contexturlPath": "/mod/forum/view.php?id=11", "contexturlName": "Avvisi del corso", "hoursAgo": 2, "read": false, "smallmessage": "La lezione di giovedì 6 novembre si tiene in aula T.2.1.", "text": null, "fullmessage": null, "fullmessagehtml": "<p>La lezione di <strong>giovedì 6 novembre</strong> si tiene in aula <em>T.2.1</em>.</p><ul><li>porta gli appunti delle derivate</li><li>consegna l'homework 1 entro domenica</li></ul><p>Dettagli sul <a href=\"https://webeep.example/mod/forum/discuss.php?d=901\">forum del corso</a> o sul <a href=\"https://www.example.org/\">sito del Politecnico</a>.</p><script>alert('script')</script>"},
+    {"id": 902, "subject": "Valutazione disponibile: Homework 0", "component": "mod_assign", "componentlabel": "Compito", "eventtype": "graded", "contexturlPath": "/mod/assign/view.php?id=32", "contexturlName": "Consegna homework 1", "hoursAgo": 20, "read": false, "smallmessage": null, "text": "Valutazione disponibile per Homework 0: 27/30. Il compito resta consultabile nel corso.", "fullmessage": null, "fullmessagehtml": null},
+    {"id": 903, "subject": "Nuova risposta in Forum studenti: dubbio sull'esercizio 4", "component": "mod_forum", "componentlabel": "Forum", "eventtype": "posts", "contexturlPath": "/mod/forum/discuss.php?d=903", "contexturlName": "Forum studenti", "hoursAgo": 50, "read": true, "smallmessage": null, "text": "Ciao Giulia, per l'esercizio 4 prova prima a riscrivere il limite nella forma indeterminata: viene subito.", "fullmessage": null, "fullmessagehtml": null},
+    {"id": 904, "subject": "Manutenzione programmata di WeBeep", "component": "moodle", "componentlabel": "Sistema", "eventtype": "maintenance", "contexturlPath": null, "contexturlName": null, "hoursAgo": 74, "read": true, "smallmessage": null, "text": null, "fullmessage": null, "fullmessagehtml": null},
+    {"id": 905, "subject": "Nuovo file in Chimica Generale: Esercizi-03.pdf", "component": "mod_resource", "componentlabel": "File", "eventtype": "file", "contexturlPath": "/mod/resource/view.php?id=999999", "contexturlName": "Esercizi-03.pdf", "hoursAgo": 96, "read": false, "smallmessage": "Un nuovo file è disponibile in Chimica Generale.", "text": null, "fullmessage": null, "fullmessagehtml": null}
   ]
 }
