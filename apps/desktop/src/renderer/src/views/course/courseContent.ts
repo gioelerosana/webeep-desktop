@@ -6,10 +6,9 @@
 import type { Course, CourseModule, CourseSection, ModuleContent } from '@webeep/moodle-api';
 import type { FileRequest } from '../../../../shared/ipc';
 import { hasRichContent, parseRichHtml, type RichNode } from '../../components/rich-html/parseRichHtml';
-import { formatDateTime, formatFileSize, htmlToText, parseCourseName } from '../../lib/format';
+import { formatDateTime, formatFileSize, htmlToText, joinMeta, parseCourseName } from '../../lib/format';
 
 const LOCALE = 'it-IT';
-const META_SEPARATOR = ' · ';
 const SINGLE_FILE_COUNT = 1;
 
 export const LABEL_MODNAME = 'label';
@@ -135,13 +134,11 @@ export const fileExtension = (filename: string): string | undefined => {
 
 /** Riga secondaria di un file: "PDF · 1,2 MB · 4 nov, 14:30". */
 export const fileMeta = (file: FileMetaSource): string =>
-  [
+  joinMeta([
     fileExtension(file.filename),
     formatFileSize(file.filesize),
     file.timemodified === undefined ? undefined : formatDateTime(file.timemodified),
-  ]
-    .filter(isDefined)
-    .join(META_SEPARATOR);
+  ]);
 
 export const toFileRequest = (file: DownloadableFile, courseName: string, sectionName: string): FileRequest => ({
   fileUrl: file.fileurl,
@@ -154,8 +151,8 @@ export const toFileRequest = (file: DownloadableFile, courseName: string, sectio
 /** Docente e categoria sotto il titolo; le parti mancanti si omettono. */
 export const courseSubtitle = (course: Course): string | undefined => {
   const teacher = parseCourseName(course.fullname).teacher;
-  const parts = [teacher, course.coursecategory].filter((part): part is string => part !== undefined && part !== '');
-  return parts.length > 0 ? parts.join(META_SEPARATOR) : undefined;
+  const meta = joinMeta([teacher, course.coursecategory]);
+  return meta === '' ? undefined : meta;
 };
 
 /** Posizione di un modulo nel corso: il modulo e il nome della sezione che lo contiene. */

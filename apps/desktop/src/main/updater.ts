@@ -143,14 +143,10 @@ const runGuarded = async (operation: () => Promise<unknown>): Promise<void> => {
   }
 };
 
-const scheduledCheck = (): void => {
-  checkForUpdates();
-};
-
 const scheduleChecks = (): void => {
   setTimeout(() => {
-    scheduledCheck();
-    setInterval(scheduledCheck, CHECK_INTERVAL_MS);
+    checkForUpdates();
+    setInterval(checkForUpdates, CHECK_INTERVAL_MS);
   }, FIRST_CHECK_DELAY_MS);
 };
 

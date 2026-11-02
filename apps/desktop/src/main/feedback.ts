@@ -47,7 +47,7 @@ export const describeSystem = (system: SystemInfo): string =>
 const isFeedbackKind = (value: unknown): value is FeedbackKind =>
   typeof value === 'string' && Object.hasOwn(ISSUE_TEMPLATE_BY_KIND, value);
 
-export const buildFeedbackUrl = (kind: FeedbackKind): string => {
+const buildFeedbackUrl = (kind: FeedbackKind): string => {
   const params = new URLSearchParams({ template: ISSUE_TEMPLATE_BY_KIND[kind] });
   if (kind === 'bug') {
     params.set('app-version', app.getVersion());

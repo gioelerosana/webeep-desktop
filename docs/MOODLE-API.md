@@ -71,4 +71,4 @@ successo. La risposta reale (warning compresi) va verificata su WeBeep reale.
 4. riga in questa tabella;
 5. se serve al renderer: canale in `apps/desktop/src/shared/ipc.ts`, handler in
    `src/main/handlers.ts`, hook in `src/renderer/src/lib/queries.ts`, dati
-   finti in `mock-bridge.ts`.
+   finti in `src/renderer/src/lib/mock/fixtures.ts`.

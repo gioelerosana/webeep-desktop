@@ -21,7 +21,7 @@ import {
 } from '@webeep/moodle-api/auth';
 import appIcon from '../../resources/icon.png?asset';
 
-export const LOGIN_PARTITION = 'persist:webeep-login';
+const LOGIN_PARTITION = 'persist:webeep-login';
 const LOGIN_WINDOW_WIDTH = 520;
 const LOGIN_WINDOW_HEIGHT = 720;
 const MAX_LAUNCH_RETRIES = 2;

@@ -1,4 +1,4 @@
-import { AlertCircle } from 'lucide-react';
+import { CircleAlert } from 'lucide-react';
 import { Button, EmptyState } from '@webeep/ui-kit';
 import type { ReactNode } from 'react';
 
@@ -11,7 +11,7 @@ export type ListErrorStateProps = {
 export const ListErrorState = ({ title, onRetry }: ListErrorStateProps): ReactNode => (
   <EmptyState
     className="py-8"
-    icon={<AlertCircle />}
+    icon={<CircleAlert />}
     title={title}
     action={
       <Button variant="outline" size="sm" onClick={onRetry}>

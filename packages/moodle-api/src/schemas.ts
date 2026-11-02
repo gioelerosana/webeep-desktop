@@ -30,7 +30,7 @@ export const siteInfoSchema = z.object({
 });
 export type SiteInfo = z.infer<typeof siteInfoSchema>;
 
-export const courseSchema = z.object({
+const courseSchema = z.object({
   id: z.number().int(),
   fullname: z.string(),
   shortname: z.string(),
@@ -54,21 +54,27 @@ export const coursesByTimelineSchema = z.object({
 export const COURSE_TIMELINE_CLASSIFICATIONS = ['all', 'inprogress', 'future', 'past', 'favourites', 'hidden'] as const;
 export type CourseTimelineClassification = (typeof COURSE_TIMELINE_CLASSIFICATIONS)[number];
 
-/**
- * Moodle manda `filepath: null` sui file dei moduli `resource` (osservato su
- * WeBeep): la chiave c'è ma non ha valore. Lo normalizziamo a `undefined`, che è
- * il significato che il resto del codice si aspetta da un campo opzionale.
- */
+/** `null` e chiave assente significano la stessa cosa: il campo non c'è. */
 const nullishToUndefined = <TValue>(value: TValue | null | undefined): TValue | undefined => value ?? undefined;
 
-export const moduleContentSchema = z.object({
+/** Stringa facoltativa: `null` e chiave assente valgono come campo non presente. */
+const optionalText = z
+  .string()
+  .nullish()
+  .transform(nullishToUndefined)
+  .optional();
+
+/**
+ * Percorso di un file (`filepath`). Moodle manda `filepath: null` sui file dei
+ * moduli `resource` (osservato su WeBeep): la chiave c'è ma non ha valore, e va
+ * trattata come assente.
+ */
+const optionalPath = optionalText;
+
+const moduleContentSchema = z.object({
   type: z.string(),
   filename: z.string(),
-  filepath: z
-    .string()
-    .nullish()
-    .transform(nullishToUndefined)
-    .optional(),
+  filepath: optionalPath,
   filesize: z.number().optional().default(0),
   fileurl: z.string().optional(),
   timemodified: unixSeconds.optional(),
@@ -91,7 +97,7 @@ export const courseModuleSchema = z.object({
 });
 export type CourseModule = z.infer<typeof courseModuleSchema>;
 
-export const courseSectionSchema = z.object({
+const courseSectionSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   summary: z.string().optional().default(''),
@@ -110,7 +116,7 @@ export const courseContentsSchema = z.array(courseSectionSchema);
  * contiene. Non riusa `courseModuleSchema` perché i moduli di
  * `core_course_get_contents` non hanno `course`, `module` né `sectionnum`.
  */
-export const courseModuleContextSchema = z.object({
+const courseModuleContextSchema = z.object({
   id: z.number().int(),
   course: z.number().int(),
   module: z.number().int(),
@@ -133,7 +139,7 @@ export const courseModuleResponseSchema = z.object({
   warnings: z.array(z.unknown()).optional().default([]),
 });
 
-export const calendarEventSchema = z.object({
+const calendarEventSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   description: z.string().optional().default(''),
@@ -167,7 +173,7 @@ export const actionEventsSchema = z.object({
   lastid: z.number().optional(),
 });
 
-export const notificationSchema = z.object({
+const notificationSchema = z.object({
   id: z.number().int(),
   subject: z.string(),
   shortenedsubject: z.string().optional(),
@@ -216,13 +222,9 @@ export type PublicConfig = z.infer<typeof publicConfigSchema>;
  * File allegati a una pagina (`contentfiles`, `introfiles`). Non hanno il campo
  * `type` dei file dei moduli del corso, quindi non riusano `moduleContentSchema`.
  */
-export const pageFileSchema = z.object({
+const pageFileSchema = z.object({
   filename: z.string(),
-  filepath: z
-    .string()
-    .nullish()
-    .transform(nullishToUndefined)
-    .optional(),
+  filepath: optionalPath,
   filesize: z.number().optional().default(0),
   fileurl: z.string().optional(),
   timemodified: unixSeconds.optional(),
@@ -235,7 +237,7 @@ export type PageFile = z.infer<typeof pageFileSchema>;
  * `core_course_get_contents` (`modules[].id`). `content` è HTML: va mostrato
  * come testo, non iniettato (vedi AGENTS.md).
  */
-export const pageSchema = z.object({
+const pageSchema = z.object({
   id: z.number().int(),
   coursemodule: z.number().int(),
   course: z.number().int(),
@@ -278,18 +280,12 @@ export const setFavouriteCoursesSchema = z.object({
  */
 const nullishToEmpty = (value: string | null | undefined): string => value ?? '';
 
-const optionalText = z
-  .string()
-  .nullish()
-  .transform(nullishToUndefined)
-  .optional();
-
 const courseContactSchema = z.object({
   id: z.number().int(),
   fullname: z.string(),
 });
 
-export const courseSearchResultSchema = z.object({
+const courseSearchResultSchema = z.object({
   id: z.number().int(),
   fullname: z.string(),
   displayname: optionalText,

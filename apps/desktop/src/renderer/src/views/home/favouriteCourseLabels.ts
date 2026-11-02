@@ -1,7 +1,5 @@
 import type { Course } from '@webeep/moodle-api';
-import { parseCourseName } from '../../lib/format';
-
-const META_SEPARATOR = ' · ';
+import { joinMeta, parseCourseName } from '../../lib/format';
 
 export type FavouriteCourseLabels = {
   readonly title: string;
@@ -12,6 +10,6 @@ export type FavouriteCourseLabels = {
 /* Testi di una card corso: il titolo senza il docente tra parentesi, poi categoria e docente sotto. */
 export const favouriteCourseLabelsOf = (course: Course): FavouriteCourseLabels => {
   const { title, teacher } = parseCourseName(course.fullname);
-  const parts = [course.coursecategory, teacher].filter((part): part is string => Boolean(part));
-  return { title, meta: parts.length > 0 ? parts.join(META_SEPARATOR) : undefined };
+  const meta = joinMeta([course.coursecategory, teacher]);
+  return { title, meta: meta === '' ? undefined : meta };
 };

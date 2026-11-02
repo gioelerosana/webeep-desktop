@@ -64,18 +64,28 @@ const readJson = async (response: Response, wsfunction: string): Promise<unknown
   }
 };
 
-const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams, wsfunction: string): Promise<unknown> => {
+/**
+ * Esegue la richiesta e traduce i guasti di rete in `MoodleNetworkError`. Un
+ * solo punto per entrambe le primitive: `call` e `callPublicAjax` devono
+ * fallire allo stesso modo.
+ */
+const sendRequest = async (fetchFn: FetchLike, url: string, init: RequestInit): Promise<Response> => {
   let response: Response;
   try {
-    response = await fetchFn(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-    });
+    response = await fetchFn(url, init);
   } catch (cause) {
     throw new MoodleNetworkError(`Impossibile contattare ${url}`, undefined, { cause });
   }
   if (!response.ok) throw new MoodleNetworkError(`HTTP ${response.status} da ${url}`, response.status);
+  return response;
+};
+
+const postForm = async (fetchFn: FetchLike, url: string, body: URLSearchParams, wsfunction: string): Promise<unknown> => {
+  const response = await sendRequest(fetchFn, url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
   return readJson(response, wsfunction);
 };
 
@@ -125,17 +135,11 @@ export const callPublicAjax = async <TSchema extends z.ZodType>(
   fetchFn: FetchLike = fetch,
 ): Promise<z.output<TSchema>> => {
   const url = `${trimTrailingSlash(siteUrl)}${AJAX_NOLOGIN_PATH}?info=${methodname}`;
-  let response: Response;
-  try {
-    response = await fetchFn(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([{ index: 0, methodname, args }]),
-    });
-  } catch (cause) {
-    throw new MoodleNetworkError(`Impossibile contattare ${url}`, undefined, { cause });
-  }
-  if (!response.ok) throw new MoodleNetworkError(`HTTP ${response.status} da ${url}`, response.status);
+  const response = await sendRequest(fetchFn, url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify([{ index: 0, methodname, args }]),
+  });
   const body = await readJson(response, methodname);
   const first: unknown = Array.isArray(body) ? body[0] : undefined;
   if (typeof first !== 'object' || first === null || !('error' in first) || !('data' in first)) {

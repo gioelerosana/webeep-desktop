@@ -1,7 +1,8 @@
 import { Button, Card, CardHeader, EmptyState } from '@webeep/ui-kit';
-import { CircleAlert, Search, SearchX } from 'lucide-react';
+import { Search, SearchX } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { COURSE_SEARCH_MIN_QUERY_LENGTH } from '../../../../shared/ipc';
+import { QueryErrorState } from '../../components/QueryErrorState';
 import type { CourseSearchView } from './useCourseSearchView';
 import { CourseSearchList } from './CourseSearchList';
 import { SearchLoadMore } from './SearchLoadMore';
@@ -42,9 +43,8 @@ export const SearchBody = ({ search, onOpenCourse }: SearchBodyProps): ReactNode
   if (search.phase === 'error') {
     return (
       <Card>
-        <EmptyState
+        <QueryErrorState
           className="py-10"
-          icon={<CircleAlert />}
           title="Impossibile cercare tra i corsi"
           action={
             <Button variant="outline" size="sm" onClick={search.retry}>

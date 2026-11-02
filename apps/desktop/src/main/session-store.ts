@@ -10,6 +10,7 @@ import { app, safeStorage } from 'electron';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { isMissingFile } from './fs-errors.js';
 
 const SESSION_FILE = 'session.bin';
 const FILE_MODE_OWNER_ONLY = 0o600;
@@ -23,10 +24,7 @@ export type StoredSession = z.infer<typeof storedSessionSchema>;
 
 const sessionPath = (): string => join(app.getPath('userData'), SESSION_FILE);
 
-const isMissingFile = (error: unknown): boolean =>
-  error instanceof Error && 'code' in error && error.code === 'ENOENT';
-
-export const canPersistSession = (): boolean => safeStorage.isEncryptionAvailable();
+const canPersistSession = (): boolean => safeStorage.isEncryptionAvailable();
 
 export const loadSession = async (): Promise<StoredSession | undefined> => {
   if (!canPersistSession()) return undefined;

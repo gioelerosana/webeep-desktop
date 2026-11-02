@@ -7,10 +7,9 @@ import type { MoodleNotification } from '@webeep/moodle-api';
 import { Button, cn } from '@webeep/ui-kit';
 import { Check, ChevronDown, ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { NotificationPanel } from '../../components/notification/NotificationPanel';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { notificationPreviewText } from '../../lib/notificationContext';
-import { NotificationActions } from './NotificationActions';
-import { NotificationBody } from './NotificationBody';
 import { useNotificationRow } from './useNotificationRow';
 
 export type NotificationRowProps = {
@@ -53,22 +52,7 @@ export const NotificationRow = ({ notification }: NotificationRowProps): ReactNo
           />
         </button>
 
-        {row.isOpen ? (
-          <div id={row.panelId} className="mt-2 flex flex-col gap-3 border-l-2 pl-3">
-            <NotificationBody content={row.content} />
-            <NotificationActions
-              destinationLabel={row.destinationLabel}
-              isUnread={row.isUnread}
-              isMarkingRead={row.isMarkingRead}
-              isResolvingContext={row.isResolvingContext}
-              canOpenInCourse={row.canOpenInCourse}
-              canOpenOnWebeep={row.canOpenOnWebeep}
-              onMarkAsRead={row.markAsRead}
-              onOpenInCourse={row.openInCourse}
-              onOpenOnWebeep={row.openOnWebeep}
-            />
-          </div>
-        ) : null}
+        {row.isOpen ? <NotificationPanel row={row} /> : null}
       </div>
 
       {row.isOpen ? null : (
