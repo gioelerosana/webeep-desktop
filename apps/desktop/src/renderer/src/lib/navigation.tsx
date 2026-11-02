@@ -8,7 +8,7 @@ import { createContext, use, useMemo, useState, type ReactNode } from 'react';
 
 export type Route =
   | { readonly name: 'home' }
-  | { readonly name: 'course'; readonly courseId: number }
+  | { readonly name: 'course'; readonly courseId: number; readonly moduleId?: number }
   | { readonly name: 'notifications' }
   | { readonly name: 'search' }
   | { readonly name: 'settings' };

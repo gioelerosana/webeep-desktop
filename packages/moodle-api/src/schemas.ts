@@ -104,6 +104,35 @@ export type CourseSection = z.infer<typeof courseSectionSchema>;
 
 export const courseContentsSchema = z.array(courseSectionSchema);
 
+/**
+ * Risposta di `core_course_get_course_module`: da un `cmid` (l'id del modulo nel
+ * corso, quello che compare nella `contexturl` di una notifica) al corso che lo
+ * contiene. Non riusa `courseModuleSchema` perché i moduli di
+ * `core_course_get_contents` non hanno `course`, `module` né `sectionnum`.
+ */
+export const courseModuleContextSchema = z.object({
+  id: z.number().int(),
+  course: z.number().int(),
+  module: z.number().int(),
+  instance: z.number().int().optional(),
+  name: z.string(),
+  modname: z.string(),
+  sectionnum: z.number().int().optional(),
+  visible: moodleBool.optional().default(true),
+  uservisible: moodleBool.optional().default(true),
+  url: z.string().optional(),
+});
+export type CourseModuleContext = z.infer<typeof courseModuleContextSchema>;
+
+/**
+ * `warnings` resta non tipizzato e facoltativo: qui interessa solo il modulo, e un
+ * avviso di Moodle non deve far fallire la risoluzione del contesto.
+ */
+export const courseModuleResponseSchema = z.object({
+  cm: courseModuleContextSchema,
+  warnings: z.array(z.unknown()).optional().default([]),
+});
+
 export const calendarEventSchema = z.object({
   id: z.number().int(),
   name: z.string(),
@@ -143,13 +172,24 @@ export const notificationSchema = z.object({
   subject: z.string(),
   shortenedsubject: z.string().optional(),
   smallmessage: z.string().nullable().optional(),
+  /** Corpo della notifica: testo semplice (`text`) e versione HTML (`fullmessagehtml`). */
+  text: z.string().nullable().optional(),
+  fullmessage: z.string().nullable().optional(),
   fullmessagehtml: z.string().nullable().optional(),
   contexturl: z.string().nullable().optional(),
   contexturlname: z.string().nullable().optional(),
   component: z.string().optional(),
+  /** Nome leggibile del componente (`Forum`, `Compito`), già tradotto da Moodle. */
+  componentlabel: z.string().nullable().optional(),
   eventtype: z.string().optional(),
+  /** Dati extra del componente, come stringa JSON: qui resta testo, non si interpreta. */
+  customdata: z.string().nullable().optional(),
   timecreated: unixSeconds,
+  /** `null` finché la notifica non viene letta: la chiave c'è ma senza valore. */
+  timeread: unixSeconds.nullable().optional(),
   read: moodleBool,
+  /** Mittente della notifica; `0` quando la manda il sito stesso. */
+  useridfrom: z.number().int().optional(),
   iconurl: z.string().optional(),
 });
 export type MoodleNotification = z.infer<typeof notificationSchema>;

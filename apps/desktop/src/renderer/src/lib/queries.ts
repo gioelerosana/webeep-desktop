@@ -19,6 +19,7 @@ import {
   COURSE_TIMELINE_CLASSIFICATIONS,
   type CalendarEvent,
   type Course,
+  type CourseModuleContext,
   type CourseSearchPage,
   type CourseSearchResult,
   type CourseSection,
@@ -45,6 +46,7 @@ export const queryKeys = {
   courseContents: (courseId: number) => ['course-contents', courseId] as const,
   courseSearch: (query: string) => ['course-search', query] as const,
   coursePage: (courseId: number, moduleId: number) => ['course-page', courseId, moduleId] as const,
+  courseModule: (cmid: number | null) => ['course-module', cmid] as const,
   upcomingEvents: ['upcoming-events'] as const,
   notifications: ['notifications'] as const,
   settings: ['settings'] as const,
@@ -286,6 +288,18 @@ export const useUpcomingEvents = (): UseQueryResult<readonly CalendarEvent[]> =>
 
 export const useNotifications = (): UseQueryResult<NotificationsPage> =>
   useQuery({ queryKey: queryKeys.notifications, queryFn: () => invoke('moodle:notifications') });
+
+/**
+ * Contesto del modulo a partire dal `cmid` della `contexturl` di una notifica: dà il
+ * corso in cui aprire la risorsa dentro l'app. `null` = contesto non risolvibile, la
+ * vista ripiega su "Apri su WeBeep". Senza `cmid` la richiesta non parte affatto.
+ */
+export const useCourseModule = (cmid: number | null): UseQueryResult<CourseModuleContext | null> =>
+  useQuery({
+    queryKey: queryKeys.courseModule(cmid),
+    queryFn: () => (cmid === null ? Promise.resolve(null) : invoke('moodle:course-module', cmid)),
+    enabled: cmid !== null,
+  });
 
 export const useMarkNotificationRead = (): UseMutationResult<null, Error, number> => {
   const queryClient = useQueryClient();

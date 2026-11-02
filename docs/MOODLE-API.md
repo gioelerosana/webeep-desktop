@@ -15,6 +15,7 @@ delle funzioni disponibili:
 | `core_webservice_get_site_info` | `getSiteInfo` | utente corrente, verifica token |
 | `core_course_get_enrolled_courses_by_timeline_classification` | `getCourses` | corsi iscritti per classificazione: `inprogress`, `past`, `future`, `favourites`, `hidden`, `all` |
 | `core_course_get_contents` | `getCourseContents` | sezioni, moduli, file di un corso |
+| `core_course_get_course_module` | `getCourseModule` | contesto di un modulo dal suo `cmid`: corso che lo contiene, tipo (`modname`), nome e sezione. Serve alle notifiche, la cui `contexturl` porta solo il `cmid` |
 | `core_calendar_get_action_events_by_timesort` | `getUpcomingEvents` | scadenze (sequenza temporale) |
 | `message_popup_get_popup_notifications` | `getNotifications` | notifiche |
 | `core_message_mark_notification_read` | `markNotificationRead` | segna una notifica come letta |
@@ -22,6 +23,16 @@ delle funzioni disponibili:
 | `mod_page_get_pages_by_courses` | `getPages` | pagine (`mod_page`) di uno o più corsi: HTML e file allegati |
 | `core_course_search_courses` | `searchCourses` | ricerca nel catalogo (`criterianame=search`, pagina da 0, `limittoenrolled=0`): anche corsi a cui non si è iscritti |
 | `core_course_set_favourite_courses` | `setCourseFavourite` | **scrittura, solo su azione dell'utente**: mette o toglie un corso dai preferiti (`courses[0][id]`, `courses[0][favourite]` 1/0). Risposta solo `warnings`: una lista non vuota diventa `MoodleApiError` |
+
+**Notifiche** (`message_popup_get_popup_notifications`) tornano con il soggetto,
+l'anteprima breve (`smallmessage`) e il corpo in tre forme: `text` e `fullmessage` in
+testo semplice, `fullmessagehtml` in HTML di Moodle (reso dal componente `rich-html`,
+mai iniettato). Il corpo può però **mancare**: parecchie notifiche hanno solo il
+soggetto, e quei campi arrivano `null` o assenti. Attorno al testo ci sono `component`
+e `componentlabel` (che risorsa è), `customdata` (stringa JSON del componente: qui
+resta testo, non si interpreta), `timeread` (`null` finché la notifica non è letta) e
+`useridfrom` (`0` quando la manda il sito). La `contexturl` non contiene il corso: per
+aprire la risorsa dentro l'app il `cmid` va risolto con `core_course_get_course_module`.
 
 La ricerca restituisce `{ total, courses }` con `total` sul totale di tutte le
 pagine. Per i corsi non iscritti si prevede che `core_course_get_contents` risponda

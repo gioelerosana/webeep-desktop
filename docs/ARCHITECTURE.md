@@ -59,6 +59,20 @@ Logout: cancella la sessione salvata e i cookie della finestra di login.
   `<downloadDir>/<corso>/<sezione>/<file>`, saltando i file già aggiornati
   (confronto con `timemodified`).
 
+## Notifiche
+
+La riga di una notifica mostra soggetto e anteprima e si espande per leggere il corpo:
+l'HTML di Moodle passa dal componente `rich-html` (whitelist di tag, niente
+`dangerouslySetInnerHTML`), altrimenti si usa il testo semplice e, se manca anche
+quello, resta il solo soggetto. La `contexturl` porta il `cmid` del modulo e non il
+corso: `useCourseModule` lo risolve on demand con il canale `moodle:course-module`
+(`main/notification-context.ts`) e fa comparire "Apri nel corso", che naviga alla
+rotta `course` con `moduleId` e apre la risorsa senza uscire dall'app. Se il contesto
+non si risolve la voce sparisce e resta "Apri su WeBeep": il degrado è silenzioso per
+scelta, un modulo non risolvibile non deve rompere l'elenco, e i fallimenti si vedono
+solo nel log del main, dove finisce il solo `errorcode` e mai il messaggio con i
+parametri dell'URL.
+
 ## Barra del titolo
 
 La finestra principale non ha la cornice nativa: su Linux e Windows

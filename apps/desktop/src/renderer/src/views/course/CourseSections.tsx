@@ -1,6 +1,6 @@
 import { EmptyState } from '@webeep/ui-kit';
 import { FolderOpen, SearchX } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import type { RichLinkRenderer } from '../../components/rich-html/RichLink';
 import { CourseSectionBlock } from './CourseSectionBlock';
 import type { CourseSectionView, ModuleLocation } from './courseContent';
@@ -16,10 +16,26 @@ export type CourseSectionsProps = {
   readonly fileActions: CourseFileActions;
   /** Apre una pagina del corso nell'app. */
   readonly onOpenPage: (moduleId: number) => void;
+  /** Sezione da mostrare già aperta: quando una notifica punta a un modulo al suo interno.
+   * Senza questo valore le sezioni restano tutte aperte come prima. */
+  readonly defaultExpandedSectionId?: number;
+  /** Modulo arrivato da una notifica, da evidenziare per qualche istante. */
+  readonly highlightedModuleId?: number;
+  /** Riga del modulo evidenziato: la vista corso la usa per portarlo in vista. */
+  readonly highlightedRowRef?: RefObject<HTMLDivElement | null>;
 };
 
 /** Elenco delle sezioni, o lo stato vuoto: corso senza materiali oppure filtro senza risultati. */
-export const CourseSections = ({ views, query, locations, fileActions, onOpenPage }: CourseSectionsProps): ReactNode => {
+export const CourseSections = ({
+  views,
+  query,
+  locations,
+  fileActions,
+  onOpenPage,
+  defaultExpandedSectionId,
+  highlightedModuleId,
+  highlightedRowRef,
+}: CourseSectionsProps): ReactNode => {
   if (views.length === 0) {
     const trimmed = query.trim();
     return trimmed === '' ? (
@@ -53,6 +69,9 @@ export const CourseSections = ({ views, query, locations, fileActions, onOpenPag
           fileActions={fileActions}
           onOpenPage={onOpenPage}
           renderLink={linkRendererFor(view.name)}
+          defaultExpanded={defaultExpandedSectionId === undefined || defaultExpandedSectionId === view.id}
+          highlightedModuleId={highlightedModuleId}
+          highlightedRowRef={highlightedRowRef}
         />
       ))}
     </div>

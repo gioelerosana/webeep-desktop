@@ -1,0 +1,49 @@
+{
+  "notifications": [
+    {
+      "id": 3101,
+      "useridfrom": 42,
+      "useridto": 1234,
+      "subject": "Nuovo avviso nel forum",
+      "shortenedsubject": "Nuovo avviso nel forum",
+      "text": "Mario Rossi ha pubblicato un avviso nel forum Forum avvisi",
+      "fullmessage": "Mario Rossi ha pubblicato un avviso nel forum \"Forum avvisi\" del corso Analisi Matematica I.",
+      "fullmessageformat": 1,
+      "fullmessagehtml": "<p>Mario Rossi ha pubblicato un avviso nel forum \"Forum avvisi\".</p>",
+      "smallmessage": "Nuovo avviso nel forum Forum avvisi",
+      "contexturl": "https://webeep.polimi.it/mod/forum/view.php?id=9002",
+      "contexturlname": "Forum avvisi",
+      "component": "mod_forum",
+      "componentlabel": "Forum",
+      "eventtype": "posts",
+      "customdata": "{\"cmid\":9002,\"postid\":31}",
+      "timecreated": 1725600000,
+      "timeread": null,
+      "read": 0,
+      "iconurl": "https://webeep.polimi.it/theme/image.php/boost/forum/1725000000/icon"
+    },
+    {
+      "id": 3102,
+      "useridfrom": 0,
+      "useridto": 1234,
+      "subject": "Consegna registrata",
+      "shortenedsubject": "Consegna registrata",
+      "text": "La tua consegna è stata registrata.",
+      "fullmessage": "La tua consegna per il compito \"Esercizio 1\" è stata registrata.",
+      "fullmessageformat": 1,
+      "fullmessagehtml": "<p>La tua consegna per il compito \"Esercizio 1\" è stata registrata.</p>",
+      "smallmessage": null,
+      "contexturl": null,
+      "contexturlname": null,
+      "component": "mod_assign",
+      "componentlabel": "Compito",
+      "eventtype": "submission",
+      "customdata": "",
+      "timecreated": 1725500000,
+      "timeread": 1725510000,
+      "read": true,
+      "iconurl": "https://webeep.polimi.it/theme/image.php/boost/assign/1725000000/icon"
+    }
+  ],
+  "unreadcount": 1
+}

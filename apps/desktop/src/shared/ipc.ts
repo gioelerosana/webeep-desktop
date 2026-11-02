@@ -14,6 +14,7 @@
 import type {
   CalendarEvent,
   Course,
+  CourseModuleContext,
   CourseSearchPage,
   CourseSection,
   CourseTimelineClassification,
@@ -170,6 +171,12 @@ export type IpcContract = {
   'moodle:course-contents': { readonly args: [courseId: number]; readonly result: readonly CourseSection[] };
   'moodle:upcoming-events': { readonly args: []; readonly result: readonly CalendarEvent[] };
   'moodle:notifications': { readonly args: []; readonly result: NotificationsPage };
+  /**
+   * Da un `cmid` (l'id del modulo nel corso, quello nella `contexturl` di una notifica)
+   * al corso che lo contiene, per aprire la risorsa dentro l'app.
+   * `null` significa contesto non risolvibile: il renderer ripiega su "Apri su WeBeep".
+   */
+  'moodle:course-module': { readonly args: [cmid: number]; readonly result: CourseModuleContext | null };
   'moodle:mark-notification-read': { readonly args: [notificationId: number]; readonly result: null };
   /** Segna come lette tutte le notifiche dell'utente della sessione: nessun argomento dal renderer. */
   'moodle:mark-all-notifications-read': { readonly args: []; readonly result: null };

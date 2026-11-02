@@ -1,0 +1,16 @@
+{
+  "cm": {
+    "id": 9002,
+    "course": 101,
+    "module": 5,
+    "instance": 8,
+    "name": "Forum avvisi",
+    "modname": "forum",
+    "modplural": "Forum",
+    "sectionnum": 1,
+    "visible": 1,
+    "uservisible": true,
+    "url": "https://webeep.polimi.it/mod/forum/view.php?f=8"
+  },
+  "warnings": []
+}

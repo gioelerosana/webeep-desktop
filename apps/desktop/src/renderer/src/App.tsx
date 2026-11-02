@@ -23,7 +23,9 @@ const assertNever = (value: never): never => {
 
 const renderRoute = (route: Route): ReactNode => {
   if (route.name === 'home') return <HomeView />;
-  if (route.name === 'course') return <CourseView key={route.courseId} courseId={route.courseId} />;
+  if (route.name === 'course') {
+    return <CourseView key={route.courseId} courseId={route.courseId} moduleId={route.moduleId} />;
+  }
   if (route.name === 'notifications') return <NotificationsView />;
   if (route.name === 'search') return <SearchView />;
   if (route.name === 'settings') return <SettingsView />;
