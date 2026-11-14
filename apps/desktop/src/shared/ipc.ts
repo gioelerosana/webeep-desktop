@@ -98,7 +98,7 @@ export type CourseSearchRequest = {
  */
 export type UpdatePlatform = 'windows' | 'linux' | 'other';
 
-/** `install`: l'app scarica (su richiesta dell'utente) e installa la nuova versione. `manual`: l'app rimanda alla pagina della release. */
+/** `install`: l'app scarica e installa la nuova versione (su Windows il download parte da solo e l'installazione avviene alla chiusura). `manual`: l'app rimanda alla pagina della release. */
 export type UpdateMode = 'install' | 'manual';
 
 /** Campi presenti in ogni stato dell'aggiornamento: l'interfaccia li mostra sempre, senza leggerli dal main a parte. */
@@ -111,7 +111,9 @@ type UpdateBase = {
 /**
  * Stato del controllo aggiornamenti, unione discriminata su `status`.
  * - `unsupported`: sviluppo, `dev:web`, modalità web o piattaforma non supportata.
- * - `available` con `mode: install`: versione trovata, in attesa che l'utente avvii il download (`updates:download`).
+ * - `available` con `mode: install`: versione trovata, in attesa del download. Su Windows non si ferma qui: il download parte subito e lo stato passa a `downloading`.
+ * - `downloading`: avanzamento del download in corso; su Windows parte da solo, con `percent` 0.
+ * - `ready`: versione scaricata; si installa con `updates:install` o alla chiusura dell'app.
  * - `lastCheckedAt`: istante ISO 8601 dell'ultimo controllo concluso.
  * - `percent`: avanzamento del download, da 0 a 100.
  * - `message`: testo in italiano per l'utente, senza URL, token o percorsi.
@@ -210,9 +212,9 @@ export type IpcContract = {
   'updates:get-state': { readonly args: []; readonly result: UpdateState };
   /** Avvia un controllo; restituisce subito lo stato `checking`, l'esito arriva con `updates:state-changed`. */
   'updates:check': { readonly args: []; readonly result: UpdateState };
-  /** Avvia il download della versione trovata su Windows, su richiesta dell'utente. Errore `invalid-input` se lo stato non è `available` con `mode: install`. */
+  /** Riserva: avvia il download della versione trovata. Su Windows il download parte da solo, quindi di norma risponde `invalid-input` (stato non `available` con `mode: install`). */
   'updates:download': { readonly args: []; readonly result: null };
-  /** Riavvia e installa l'aggiornamento scaricato. Errore `invalid-input` se lo stato non è `ready`. */
+  /** Riavvia e installa subito l'aggiornamento scaricato. Errore `invalid-input` se lo stato non è `ready`. Senza clic, l'installazione avviene comunque alla chiusura. */
   'updates:install': { readonly args: []; readonly result: null };
   /** Apre nel browser la pagina della release. Il main costruisce l'URL dalla versione: il renderer non passa URL. */
   'updates:open-release': { readonly args: []; readonly result: null };

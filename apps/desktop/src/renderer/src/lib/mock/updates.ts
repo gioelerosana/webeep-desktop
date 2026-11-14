@@ -1,7 +1,8 @@
 /*
  * Scenari finti degli aggiornamenti per `?update=`: stato iniziale, esito del
  * controllo e avanzamento del download. La macchina a stati vera sta nel main;
- * qui basta imitarne i passaggi per vedere tutte le interfacce.
+ * qui basta imitarne i passaggi per vedere tutte le interfacce. Su Windows il
+ * download parte da solo dopo il controllo, come nel main.
  */
 import type { UpdatePlatform, UpdateState } from '../../../../shared/ipc';
 import { mockSearchParams } from './fixtures';
@@ -78,7 +79,7 @@ export const updateAvailableAfterCheck = (platform: UpdatePlatform): UpdateState
   mode: platform === 'windows' ? 'install' : 'manual',
 });
 
-/* Avanzamento simulato del download: passi a intervalli fissi, poi `ready`. */
+/* Avanzamento simulato del download: passi a intervalli fissi, poi `ready` (installazione alla chiusura). */
 export const simulateDownload = (
   platform: UpdatePlatform,
   version: string,
@@ -100,4 +101,15 @@ const BUSY_UPDATE_STATUSES: readonly UpdateState['status'][] = ['checking', 'dow
 export const isUpdateBusy = (current: UpdateState): boolean => {
   if (current.status === 'available') return current.mode === 'install';
   return BUSY_UPDATE_STATUSES.includes(current.status);
+};
+
+/*
+ * Esito del controllo come nel main: su Windows la versione trovata passa subito al download
+ * automatico (`available` con `mode: install` dura solo un attimo), su Linux resta un avviso.
+ */
+export const simulateUpdateAfterCheck = (platform: UpdatePlatform, applyState: (state: UpdateState) => void): void => {
+  const found = updateAvailableAfterCheck(platform);
+  applyState(found);
+  if (found.status !== 'available' || found.mode !== 'install') return;
+  setTimeout(() => simulateDownload(platform, found.version, applyState), DOWNLOAD_STEP_DELAY_MS);
 };

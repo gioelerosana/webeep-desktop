@@ -10,7 +10,6 @@ export const SidebarUpdateNotice = (): ReactNode => {
   if (!notice) return null;
 
   const runAction: Record<UpdateNoticeAction, () => void> = {
-    download: updates.download,
     install: updates.install,
     'open-release': updates.openRelease,
   };
