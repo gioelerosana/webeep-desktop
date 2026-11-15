@@ -5,27 +5,32 @@ Gli aggiornamenti arrivano dalle GitHub Release di `gioelerosana/webeep-desktop`
 
 ## Quando si controlla
 
-- Il primo controllo parte 10 secondi dopo l'avvio, poi ogni 4 ore
+- Il primo controllo parte 5 secondi dopo l'avvio, poi ogni 4 ore
   (`FIRST_CHECK_DELAY_SECONDS` e `HOURS_BETWEEN_CHECKS` in `apps/desktop/src/main/updater.ts`).
   In sviluppo, o fuori da Windows e dall'AppImage, non c'è nessun controllo.
 - Un controllo richiesto a mano è ignorato mentre è in corso, mentre scarica o quando la
   versione è pronta. Da "disponibile" si ricontrolla solo su Linux: lì è un avviso, e una
-  release ancora più nuova può essere uscita nel frattempo. Su Windows "disponibile"
-  aspetta il clic su "Scarica aggiornamento": non si ricontrolla, così non si perde la
-  versione trovata.
+  release ancora più nuova può essere uscita nel frattempo. Su Windows "disponibile" dura
+  un istante, perché il download parte subito: non c'è nessun passo da confermare.
 
 ## Windows (dentro l'app)
 
-Né il download né l'installazione partono da soli: `autoDownload` e
-`autoInstallOnAppQuit` sono `false` su tutte le piattaforme aggiornabili. Senza il clic
-dell'utente l'app non si aggiorna, nemmeno alla chiusura.
+Download e installazione partono da soli: `autoDownload` e `autoInstallOnAppQuit` sono
+`true` su Windows. L'utente non deve fare nulla per restare aggiornato. Su Linux restano
+`false`, perché l'AppImage non si sostituisce dall'app.
 
-1. Il controllo periodico legge `latest.yml` dalla Release. Se c'è una versione nuova,
-   stato "disponibile": la sidebar e le Impostazioni mostrano "Scarica aggiornamento".
-2. Il clic chiama `updates:download` e avvia il download. Le Impostazioni mostrano
-   "download della versione X in corso" con l'avanzamento in percentuale.
-3. A download completo lo stato è "pronto". "Riavvia e aggiorna" chiama `updates:install`,
-   chiude l'app e installa la versione scaricata.
+1. Il controllo periodico legge `latest.yml` dalla Release. Se c'è una versione nuova, lo
+   stato passa direttamente da "controllo" a "downloading" (evento `update-available` →
+   `downloading`, avanzamento 0%): le Impostazioni mostrano "download dell'aggiornamento X,
+   N%". Non compare nessun bottone "scarica".
+2. A download completo lo stato è `ready`. Le Impostazioni mostrano "aggiornamento X pronto:
+   verrà installato alla chiusura" con il bottone "riavvia ora", che chiama
+   `updates:install` (`quitAndInstall`): chiude l'app e installa subito.
+3. Senza premere il bottone, l'installer (NSIS) parte in silenzio alla chiusura dell'app
+   (`autoInstallOnAppQuit`). Alla riapertura la versione è già quella nuova.
+
+Il canale `updates:download` esiste ancora nel contratto IPC ma il renderer non lo usa: su
+Windows risponde `invalid-input`, perché lo stato non è mai `available` con `mode: install`.
 
 - Per i download differenziali serve `WeBeep-Desktop-Setup-<versione>-x64.exe.blockmap`,
   che electron-builder genera accanto all'installer.

@@ -36,7 +36,7 @@ import {
   initialUpdateState,
   isUpdateBusy,
   simulateDownload,
-  updateAvailableAfterCheck,
+  simulateUpdateAfterCheck,
 } from './updates';
 
 const SECONDS_PER_MS = 1000;
@@ -171,10 +171,10 @@ export const handlers: MockHandlers = {
   'updates:check': () => {
     if (updateState.status === 'unsupported' || isUpdateBusy(updateState)) return updateState;
     const { platform } = updateState;
-    setTimeout(() => setUpdateState(updateAvailableAfterCheck(platform)), UPDATE_CHECK_DELAY_MS);
+    setTimeout(() => simulateUpdateAfterCheck(platform, setUpdateState), UPDATE_CHECK_DELAY_MS);
     return setUpdateState({ currentVersion: MOCK_CURRENT_VERSION, platform, status: 'checking' });
   },
-  // Come il main: il download parte solo su richiesta, da `available` con `mode: install`.
+  // Riserva come nel main: su Windows il download parte da solo, quindi di norma risponde `invalid-input`.
   'updates:download': () => {
     if (updateState.status !== 'available' || updateState.mode !== 'install') {
       throw new MockIpcFailure('invalid-input', UPDATE_NOT_AVAILABLE_MESSAGE);

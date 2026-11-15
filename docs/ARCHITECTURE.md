@@ -177,9 +177,10 @@ Se l'apertura fallisce, il crash resta in attesa.
 
 ## Aggiornamenti
 
-Windows si aggiorna dentro l'app (`electron-updater`), e solo su richiesta dell'utente:
-"Scarica aggiornamento" avvia `updates:download`, "Riavvia e aggiorna" avvia
-`updates:install`. Nessun download o installazione parte da solo. Linux mostra un avviso
+Windows si aggiorna da solo (`electron-updater`): il controllo parte all'avvio e poi ogni 4 ore.
+Se c'è una versione nuova, il download parte in background e l'installazione avviene alla
+chiusura dell'app, così alla riapertura è già aggiornata. "Riavvia e aggiorna" avvia
+`updates:install` per installare subito; `updates:download` resta come riserva. Linux mostra un avviso
 in app e si aggiorna con un manager zsync, grazie alle update information e al `.zsync`
 che la CI aggiunge all'AppImage. Dettagli, flusso e procedura di release in
 [UPDATES.md](UPDATES.md).

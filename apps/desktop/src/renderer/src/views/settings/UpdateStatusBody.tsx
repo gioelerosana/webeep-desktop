@@ -1,12 +1,12 @@
 import { Button, Spinner } from '@webeep/ui-kit';
-import { Download, ExternalLink, RefreshCw, RotateCw } from 'lucide-react';
+import { ExternalLink, RefreshCw, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { UpdateState } from '../../../../shared/ipc';
 import type { UpdatesController } from '../../layout/useUpdates';
 import { UpdateProgressBar } from './UpdateProgressBar';
 import { formatLastCheck } from './formatLastCheck';
 
-export type UpdateActions = Pick<UpdatesController, 'check' | 'download' | 'install' | 'openRelease'>;
+export type UpdateActions = Pick<UpdatesController, 'check' | 'install' | 'openRelease'>;
 
 export type UpdateStatusBodyProps = {
   readonly state: UpdateState;
@@ -44,14 +44,12 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
     );
   }
 
-  // Su Windows la versione aspetta il clic: il download non parte da solo.
+  // Su Windows il download parte da solo: questo stato dura solo l'istante prima del download.
   if (state.status === 'available' && state.mode === 'install') {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm">versione {state.version} disponibile</p>
-        <Button size="sm" icon={<Download />} onClick={actions.download}>
-          Scarica aggiornamento
-        </Button>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner />
+        versione {state.version} trovata, download in avvio
       </div>
     );
   }
@@ -78,24 +76,23 @@ export const UpdateStatusBody = ({ state, actions }: UpdateStatusBodyProps): Rea
     );
   }
 
+  // Nessun bottone: il download è automatico e si segue qui senza azioni da fare.
   if (state.status === 'downloading') {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm">download della versione {state.version} in corso</p>
-        <div className="flex items-center gap-3">
-          <UpdateProgressBar percent={state.percent} className="flex-1" />
-          <span className="w-10 text-right font-mono text-2xs tabular-nums text-muted-foreground">{state.percent}%</span>
-        </div>
+        <p className="text-2xs text-muted-foreground">download dell'aggiornamento {state.version}, {state.percent}%</p>
+        <UpdateProgressBar percent={state.percent} />
       </div>
     );
   }
 
+  // Su Windows l'installazione avviene alla chiusura: "riavvia ora" è solo un'azione in più.
   if (state.status === 'ready') {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm">versione {state.version} pronta</p>
-        <Button size="sm" icon={<RotateCw />} onClick={actions.install}>
-          Riavvia e aggiorna
+        <p className="text-sm">aggiornamento {state.version} pronto: verrà installato alla chiusura</p>
+        <Button variant="outline" size="sm" icon={<RotateCw />} onClick={actions.install}>
+          riavvia ora
         </Button>
       </div>
     );
