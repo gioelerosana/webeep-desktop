@@ -1,5 +1,6 @@
 # Release: builda l'AppImage Linux e l'installer Windows (NSIS) e li pubblica in una
-# GitHub Release. Nessuna firma del codice.
+# GitHub Release. Nessuna firma del codice. Pubblica anche l'immagine Docker del server
+# (job `docker`, su GHCR).
 #
 # Parte in tre modi:
 #   - richiamato da release-manual.yml, con l'input `tag` appena creato: è il percorso normale;
@@ -38,7 +39,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
           # fetch-depth 0: il controllo sul tag deve vedere la storia di main, non solo il commit.
@@ -67,6 +68,51 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # Immagine Docker del server privato (apps/server, docs/SERVER.md §8), pubblicata su GHCR con
+  # il numero di versione e `latest`. Ha la stessa condizione della Release: un lancio manuale
+  # su un branch non pubblica nulla. Dipende solo dalla verifica, quindi corre in parallelo
+  # ai build desktop. Il pacchetto resta privato: il workflow non ne cambia la visibilità.
+  docker:
+    needs: verify
+    if: inputs.tag != '' || (github.event_name == 'push' && github.ref_type == 'tag')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/gioelerosana/webeep-server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      # La versione dell'immagine è il tag senza «v» (es. v26.3.1 → 26.3.1); il tag è già
+      # stato verificato dal job verify.
+      - name: Versione dell'immagine
+        id: image
+        run: echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # Solo amd64: il build arm64 via QEMU non è stato misurato e rallenterebbe la release.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.image.outputs.version }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build:
     needs: verify
     strategy:
@@ -82,7 +128,7 @@ jobs:
       # Niente firma: electron-builder non cerca certificati nel runner.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -113,7 +159,7 @@ jobs:
 
       # Il .exe.blockmap serve a electron-updater (Windows) per i download differenziali.
       # Il .AppImage.zsync serve ai manager zsync (AppImageUpdate, Gear Lever, AppImageLauncher).
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: artifacts-${{ matrix.os }}
           path: |
@@ -134,7 +180,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: release-assets
           merge-multiple: true
@@ -142,7 +188,7 @@ jobs:
       # Il sito della Release deve ospitare anche .zsync e .blockmap: senza, gli aggiornamenti
       # zsync (Linux) e differenziali (Windows) non trovano i file e ricadono sul download completo.
       # tag_name e name sono espliciti: quando il workflow è richiamato, il ref è quello di main.
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: WeBeep Desktop ${{ env.RELEASE_TAG }}
