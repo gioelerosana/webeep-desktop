@@ -258,3 +258,12 @@ La verifica la esegue il sotto-agente verificatore; il punto 4 richiede l'utente
 - Si lavora su branch (`feat/<slug>`, `fix/<slug>`); `main` riceve solo merge.
 - Commit li fa un sotto-agente su indicazione dell'orchestratore, a fine task
   verificato. Push e PR solo su richiesta esplicita dell'utente.
+
+### Versioni
+
+- Schema `AA.MAJOR.MINOR` (es. `26.3.1`): il primo numero è l'anno a 2 cifre; il secondo è il
+  major (cambi grossi o incompatibili); il terzo è il minor (ogni release normale: feat e fix).
+- Default di una release: si incrementa l'ultimo numero. Il secondo numero si incrementa solo
+  su richiesta esplicita dell'utente o per cambi incompatibili; in quel caso il terzo riparte da 0.
+- Cambio d'anno: alla prima release del nuovo anno la versione è `AA.0.0` (AA = nuovo anno, a 2 cifre).
+- Le release si fanno col workflow "Release manuale" (`.github/workflows/release-manual.yml`).

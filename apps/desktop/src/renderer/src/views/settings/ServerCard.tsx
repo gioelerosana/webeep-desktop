@@ -1,7 +1,9 @@
-import { Button, Card, CardHeader, Skeleton } from '@webeep/ui-kit';
+import { Card, CardHeader, Skeleton } from '@webeep/ui-kit';
 import type { ReactNode } from 'react';
 import { isWebRenderer } from '../../lib/http-bridge';
 import { ServerLinkForm } from './ServerLinkForm';
+import { ServerLinkedInfo } from './ServerLinkedInfo';
+import { ServerLinkPending } from './ServerLinkPending';
 import { useServerLinkForm } from './useServerLinkForm';
 
 const DESCRIPTION = 'Il server riceve la sessione WeBeep di questo computer, per servire Claude.';
@@ -21,22 +23,9 @@ const ServerCardBody = (): ReactNode => {
   if (form.query.isError) {
     return <p className="px-4 py-3 text-sm text-muted-foreground">impossibile leggere lo stato del server</p>;
   }
+  if (form.linking) return <ServerLinkPending form={form} />;
   if (form.status?.paired && form.status.serverUrl) {
-    const { serverUrl, fullName } = form.status;
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-sm font-medium">{fullName ? `collegato come ${fullName}` : 'collegato'}</p>
-          <p className="truncate font-mono text-sm text-muted-foreground" title={serverUrl}>
-            {serverUrl}
-          </p>
-          {form.unlinkError ? <p className="text-2xs text-error-foreground">{form.unlinkError}</p> : null}
-        </div>
-        <Button variant="outline" size="sm" loading={form.unlinking} onClick={form.unlink}>
-          scollega
-        </Button>
-      </div>
-    );
+    return <ServerLinkedInfo form={form} serverUrl={form.status.serverUrl} fullName={form.status.fullName} />;
   }
   return <ServerLinkForm form={form} />;
 };

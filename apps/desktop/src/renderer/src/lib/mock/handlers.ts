@@ -5,7 +5,7 @@
  */
 import {
   COURSE_SEARCH_PAGE_SIZE,
-  SERVER_PAIRING_KEY_MIN_LENGTH,
+  SERVER_LINK_CANCELLED_MESSAGE,
   type AuthState,
   type CrashReportSummary,
   type FeedbackKind,
@@ -67,9 +67,12 @@ const MOCK_FEEDBACK_TEMPLATE: Record<FeedbackKind, string> = {
 const MOCK_SYSTEM_DESCRIPTION = 'linux (x64), Electron di prova';
 /* Un server il cui nome contiene questo testo simula un server spento (errore `network`), per vedere lo stato di errore. */
 const MOCK_OFFLINE_HOST_PART = 'offline';
+/* Un server il cui nome contiene questo testo collega, ma non risponde allo scollegamento: si vede lo stato "rimuovi solo da questo computer". */
+const MOCK_UNREACHABLE_ON_UNLINK_PART = 'spento';
 const MOCK_SERVER_OFFLINE_MESSAGE = 'server non raggiungibile';
 const MOCK_SERVER_URL_MESSAGE = 'indirizzo del server non valido';
-const MOCK_PAIRING_KEY_MESSAGE = `la chiave di accoppiamento deve avere almeno ${SERVER_PAIRING_KEY_MIN_LENGTH} caratteri`;
+/* Il browser finto impiega questo tempo prima di tornare con l'accesso confermato. */
+const MOCK_LINK_WAIT_MS = 1_500;
 const MOCK_UNLINKED: ServerLinkState = { serverUrl: null, paired: false };
 
 /** Errore da restituire al renderer come `IpcFailure`, come farebbe il main. */
@@ -97,6 +100,8 @@ let pendingCrash: CrashReportSummary | null =
     : null;
 let updateState: UpdateState = initialUpdateState;
 let serverLink: ServerLinkState = MOCK_UNLINKED;
+/* Il collegamento finto in attesa del browser: `server:cancel-link` lo annulla. */
+let linkWait: { readonly cancel: () => void } | undefined;
 
 /* Come il main: solo l'origine del server, con https o http verso localhost. Il bridge finto non fa rete. */
 const mockOriginOf = (serverUrl: string): string => {
@@ -125,7 +130,9 @@ const setUpdateState = (next: UpdateState): UpdateState => {
 };
 
 type MockHandlers = {
-  readonly [TChannel in keyof IpcContract]: (...args: IpcContract[TChannel]['args']) => IpcContract[TChannel]['result'];
+  readonly [TChannel in keyof IpcContract]: (
+    ...args: IpcContract[TChannel]['args']
+  ) => IpcContract[TChannel]['result'] | Promise<IpcContract[TChannel]['result']>;
 };
 
 export const handlers: MockHandlers = {
@@ -238,16 +245,39 @@ export const handlers: MockHandlers = {
     pendingCrash ??= { kind: 'renderer-error', occurredAt: new Date().toISOString(), message: report.message };
     return null;
   },
-  // Come il main: il collegamento salva URL e chiave solo se il server (qui finto) li accetta.
+  // Come il main: il collegamento salva URL e dispositivo solo se il server (qui finto) li accetta, dopo l'accesso nel browser.
   'server:get-link': () => serverLink,
-  'server:link': ({ serverUrl, pairingKey }) => {
-    if (pairingKey.trim().length < SERVER_PAIRING_KEY_MIN_LENGTH) throw new MockIpcFailure('invalid-input', MOCK_PAIRING_KEY_MESSAGE);
+  'server:link': ({ serverUrl }) => {
     const origin = mockOriginOf(serverUrl);
-    if (origin.includes(MOCK_OFFLINE_HOST_PART)) throw new MockIpcFailure('network', MOCK_SERVER_OFFLINE_MESSAGE);
-    serverLink = { serverUrl: origin, paired: true, fullName: mockUser.fullname };
-    return serverLink;
+    // Come il main: un nuovo collegamento annulla quello in corso.
+    linkWait?.cancel();
+    return new Promise<ServerLinkState>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        linkWait = undefined;
+        if (origin.includes(MOCK_OFFLINE_HOST_PART)) {
+          reject(new MockIpcFailure('network', MOCK_SERVER_OFFLINE_MESSAGE));
+          return;
+        }
+        serverLink = { serverUrl: origin, paired: true, fullName: mockUser.fullname };
+        resolve(serverLink);
+      }, MOCK_LINK_WAIT_MS);
+      linkWait = {
+        cancel: () => {
+          clearTimeout(timer);
+          linkWait = undefined;
+          reject(new MockIpcFailure('auth', SERVER_LINK_CANCELLED_MESSAGE));
+        },
+      };
+    });
   },
-  'server:unlink': () => {
+  'server:cancel-link': () => {
+    linkWait?.cancel();
+    return null;
+  },
+  'server:unlink': (request) => {
+    if (!request?.localOnly && serverLink.serverUrl?.includes(MOCK_UNREACHABLE_ON_UNLINK_PART)) {
+      throw new MockIpcFailure('network', MOCK_SERVER_OFFLINE_MESSAGE);
+    }
     serverLink = MOCK_UNLINKED;
     return null;
   },

@@ -58,8 +58,9 @@ const createConfig = (): Config =>
   loadConfig({
     WEBEEP_PUBLIC_URL: 'https://server.example.it',
     WEBEEP_SECRET_KEY: Buffer.alloc(32, 7).toString('base64'),
-    WEBEEP_ADMIN_PASSWORD: 'password-admin-lunga',
-    WEBEEP_PAIRING_KEY: 'chiave-di-accoppiamento-di-prova-32+',
+    WEBEEP_OIDC_ISSUER: 'https://auth.example.it/application/o/webeep',
+    WEBEEP_OIDC_CLIENT_ID: 'webeep-server-di-prova',
+    WEBEEP_OIDC_CLIENT_SECRET: 'segreto-client-di-prova',
   });
 
 const createMemoryStore = (): StateStore => {

@@ -22,9 +22,12 @@ const mockBridge: WebeepBridge = {
     await delay(MOCK_LATENCY_MS);
     // Il mapped type garantisce che ogni handler accetti gli argomenti del proprio canale;
     // TypeScript non riesce a correlare `channel` e `args` attraverso l'indicizzazione.
-    const handler = handlers[channel] as (...input: typeof args) => IpcContract[typeof channel]['result'];
+    const handler = handlers[channel] as (
+      ...input: typeof args
+    ) => IpcContract[typeof channel]['result'] | Promise<IpcContract[typeof channel]['result']>;
     try {
-      const result: IpcResult<IpcContract[typeof channel]['result']> = { ok: true, data: handler(...args) };
+      // `await` dentro il `try`: anche le risposte asincrone (il collegamento) diventano `IpcFailure` se falliscono.
+      const result: IpcResult<IpcContract[typeof channel]['result']> = { ok: true, data: await handler(...args) };
       return result;
     } catch (error) {
       // Solo gli errori simulati diventano un `IpcFailure`; gli altri sono bug del bridge e si rilanciano.

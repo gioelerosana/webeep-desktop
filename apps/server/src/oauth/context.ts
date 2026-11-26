@@ -3,7 +3,7 @@
  */
 import type { Config } from '../config.js';
 import type { RequestContext } from '../http/types.js';
-import type { RateLimiter } from '../http/rate-limiter.js';
+import type { ClaudeAuthorizePayload, Oidc } from '../oidc/index.js';
 import type { StateManager } from '../state/manager.js';
 
 /** Access token in memoria. La chiave della mappa è il SHA-256 esadecimale del token. */
@@ -23,13 +23,25 @@ export type AuthorizationCodeRecord = {
   readonly expiresAt: number;
 };
 
+/**
+ * Consenso in attesa: i parametri di `/authorize` restano nel server, il form invia solo il
+ * token CSRF che è la chiave della mappa. Monouso, in memoria.
+ */
+export type ConsentRecord = {
+  readonly params: ClaudeAuthorizePayload;
+  /** Millisecondi epoch. */
+  readonly expiresAt: number;
+};
+
 export type OAuthContext = {
   readonly config: Config;
   readonly store: StateManager;
-  /** Contatore della password di `/authorize`, separato da quello di `/pair`. */
-  readonly rateLimiter: RateLimiter;
+  /** Login Authentik: `/authorize` lo avvia, il consenso è la sua continuazione. */
+  readonly oidc: Oidc;
   readonly accessTokens: Map<string, AccessTokenRecord>;
   readonly codes: Map<string, AuthorizationCodeRecord>;
+  /** Consensi in attesa, per token CSRF. */
+  readonly consents: Map<string, ConsentRecord>;
 };
 
 /** Gestore di una rotta. La richiesta ha già il corpo letto dal router. */

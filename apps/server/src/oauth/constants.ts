@@ -20,6 +20,11 @@ export const REFRESH_TOKEN_TTL_MS =
 // Codice di autorizzazione: 60 secondi, monouso.
 export const AUTHORIZATION_CODE_TTL_MS = SECONDS_PER_MINUTE * MS_PER_SECOND;
 
+// Consenso: token CSRF di 32 byte, valido 5 minuti, monouso (docs/SERVER.md §3.2 e §5.4).
+const CONSENT_TTL_MINUTES = 5;
+export const CONSENT_TOKEN_BYTES = 32;
+export const CONSENT_TTL_MS = CONSENT_TTL_MINUTES * SECONDS_PER_MINUTE * MS_PER_SECOND;
+
 export const MAX_REGISTERED_CLIENTS = 20;
 export const MAX_REDIRECT_URIS = 10;
 export const MAX_CLIENT_NAME_LENGTH = 200;
@@ -31,6 +36,10 @@ export const AUTHORIZATION_CODE_BYTES = 32;
 
 export const RESPONSE_TYPE_CODE = 'code';
 export const CODE_CHALLENGE_METHOD_S256 = 'S256';
+export const ERROR_ACCESS_DENIED = 'access_denied';
+// Valori del campo `decision` del form di consenso (docs/SERVER.md §5.4).
+export const DECISION_ALLOW = 'allow';
+export const DECISION_DENY = 'deny';
 export const GRANT_AUTHORIZATION_CODE = 'authorization_code';
 export const GRANT_REFRESH_TOKEN = 'refresh_token';
 export const TOKEN_AUTH_METHOD_NONE = 'none';
@@ -55,6 +64,7 @@ export const PROTECTED_RESOURCE_ALIAS_PATH = '/.well-known/oauth-protected-resou
 export const AUTHORIZATION_SERVER_PATH = '/.well-known/oauth-authorization-server';
 export const REGISTER_PATH = '/register';
 export const AUTHORIZE_PATH = '/authorize';
+export const CONSENT_PATH = '/authorize/consent';
 export const TOKEN_PATH = '/token';
 export const REVOKE_PATH = '/revoke';
 

@@ -48,7 +48,15 @@ import {
 import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
 import { resolveCourseModule } from './notification-context.js';
-import { getServerLink, linkServer, parseServerLinkRequest, ServerLinkError, unlinkServer } from './server-link.js';
+import {
+  cancelServerLink,
+  getServerLink,
+  linkServer,
+  parseServerLinkRequest,
+  parseServerUnlinkRequest,
+  ServerLinkError,
+  unlinkServer,
+} from './server-link.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
 import {
@@ -250,8 +258,12 @@ const handlers: Handlers = {
   },
 
   'server:get-link': async () => getServerLink(),
-  'server:link': async (_context, request) => linkServer(parseServerLinkRequest(request)),
-  'server:unlink': async () => unlinkServer(),
+  'server:link': async (context, request) => linkServer(parseServerLinkRequest(request), context.window),
+  'server:cancel-link': async () => {
+    cancelServerLink();
+    return null;
+  },
+  'server:unlink': async (_context, request) => unlinkServer(parseServerUnlinkRequest(request)),
 
   'crash:get-pending': async () => getPendingCrashSummary(),
   'crash:report': async () => {
