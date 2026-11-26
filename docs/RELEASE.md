@@ -36,8 +36,9 @@ Con lo squash merge il subject è il titolo della PR.
 | almeno un `feat(...)` o `fix`, `perf`, `refactor`, `style`, `revert`, `build` | `MINOR` +1: `26.3.0` → `26.3.1` | `MAJOR` +1, `MINOR` a 0: `26.3.1` → `26.4.0` |
 | solo `docs`, `ci`, `chore`, `test`, o nessun commit | niente da rilasciare | rilascia comunque |
 
-Un commit con `!` (`fix(core)!: …`) è un cambio incompatibile: in `auto` non alza il secondo
-numero da solo, quindi per quella release si sceglie `bump` = `major` a mano.
+Un commit con `!` (`fix(core)!: …`) è un cambio incompatibile: anche in `auto` alza il secondo
+numero e riporta il terzo a 0 (`26.3.1` → `26.4.0`). Basta un solo commit con `!` nel periodo perché
+la release sia `major`; non serve scegliere `bump` = `major` a mano.
 
 Non contano i merge commit (`Merge pull request …`, `Merge branch …`) e i
 `chore(release): …`. I subject che non sono in Conventional Commits vengono ignorati,
@@ -49,8 +50,9 @@ Il merge in `main` non rilascia nulla. La release è una decisione separata e si
 ## Lanciare una release
 
 Da GitHub: **Actions → Release manuale → Run workflow**, con branch `main` e `bump` su
-`auto` (default), `minor` o `major`. `auto` e `minor` incrementano l'ultimo numero; `major`
-incrementa il secondo e riporta il terzo a 0 (cambi incompatibili). Il workflow rifiuta
+`auto` (default), `minor` o `major`. `minor` incrementa l'ultimo numero; `major` incrementa il
+secondo e riporta il terzo a 0 (cambi incompatibili). `auto` sceglie tra i due in base ai commit:
+incrementa il secondo se c'è un commit con `!`, altrimenti l'ultimo. Il workflow rifiuta
 qualunque altro branch.
 
 Da terminale:
@@ -79,7 +81,7 @@ Prima di lanciare:
 Durante il lancio:
 
 3. Controlla nel riepilogo che versione e commit inclusi siano quelli attesi.
-4. Attendi i job `verify`, `build` (Linux e Windows) e `release`.
+4. Attendi i job `verify`, `build` (Linux e Windows), `docker` e `release`.
 
 Dopo la release:
 
@@ -104,10 +106,12 @@ e il secondo richiama [`release.yml`](../.github/workflows/release.yml).
      installer Windows NSIS. Nessuna firma del codice.
    - `release`: crea la GitHub Release con titolo `WeBeep Desktop vX.Y.Z`, note generate
      dai commit e gli artefatti.
-   - `docker` (da aggiungere a `release.yml`, non ancora presente): costruisce l'immagine di
-     `apps/server/Dockerfile` e la pubblica su GHCR come
+   - `docker`: dopo `verify`, in parallelo a `build`. Costruisce l'immagine di `apps/server/Dockerfile`
+     (solo `linux/amd64`) e la pubblica su GHCR come
      `ghcr.io/gioelerosana/webeep-server:<versione>` e `ghcr.io/gioelerosana/webeep-server:latest`.
-     Il pacchetto è privato: chi lo usa fa `docker login ghcr.io` (vedi [deploy/README.md](../deploy/README.md)).
+     Parte solo con un tag (richiamo da `release-manual` o push di un tag `v*`), non con un lancio
+     manuale su un branch. Il pacchetto è privato e il workflow non ne cambia la visibilità: chi lo
+     usa fa `docker login ghcr.io` (vedi [deploy/README.md](../deploy/README.md)).
 
 Il `release.yml` è richiamato direttamente e non parte dal push del tag. Il motivo: un push
 fatto con il `GITHUB_TOKEN` non fa partire altri workflow. Le release sono serializzate:
