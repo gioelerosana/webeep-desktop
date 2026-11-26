@@ -1,0 +1,27 @@
+# Contesto di build dell'immagine @webeep/server (radice del monorepo).
+# Escluso tutto ciò che non serve a `pnpm install` e alla build del server.
+
+# Dipendenze e artefatti locali: si ricostruiscono dentro l'immagine.
+**/node_modules
+**/dist
+**/out
+**/release
+*.log
+
+# Segreti e configurazione locale: non devono mai finire in un layer.
+**/.env
+**/.env.*
+.claude
+
+# Desktop e UI: il server non li usa. Il manifest serve al lockfile di pnpm.
+apps/desktop/**
+!apps/desktop/package.json
+packages/ui-kit/**
+!packages/ui-kit/package.json
+
+# Documentazione, CI, deploy e script del repo: fuori dall'immagine.
+docs
+deploy
+scripts
+.github
+.git

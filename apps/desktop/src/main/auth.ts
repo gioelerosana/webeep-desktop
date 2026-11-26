@@ -22,6 +22,7 @@ import { clearSession, loadSession, saveSession } from './session-store.js';
 type ActiveSession = {
   readonly client: MoodleClient;
   readonly token: string;
+  readonly privateToken: string | undefined;
   readonly user: SiteInfo;
 };
 
@@ -40,10 +41,10 @@ const broadcast = (): void => {
   BrowserWindow.getAllWindows().forEach((window) => window.webContents.send('auth:changed', state));
 };
 
-const activate = async (siteUrl: string, token: string): Promise<SiteInfo> => {
+const activate = async (siteUrl: string, token: string, privateToken: string | undefined): Promise<SiteInfo> => {
   const client = createMoodleClient({ siteUrl, token });
   const user = await getSiteInfo(client);
-  active = { client, token, user };
+  active = { client, token, privateToken, user };
   return user;
 };
 
@@ -58,7 +59,7 @@ export const restoreSession = async (): Promise<AuthState> => {
   const stored = await loadSession();
   if (!stored) return SIGNED_OUT;
   try {
-    await activate(stored.siteUrl, stored.token);
+    await activate(stored.siteUrl, stored.token, stored.privateToken);
   } catch (error) {
     if (error instanceof MoodleApiError && error.isAuthError) await clearSession();
     return SIGNED_OUT;
@@ -70,7 +71,7 @@ export const getAuthState = (): AuthState => toAuthState();
 
 export const login = async (parent: BrowserWindow | undefined): Promise<AuthState> => {
   const launched = await runLoginFlow(WEBEEP_SITE_URL, parent);
-  await activate(WEBEEP_SITE_URL, launched.token);
+  await activate(WEBEEP_SITE_URL, launched.token, launched.privateToken);
   await saveSession({ siteUrl: WEBEEP_SITE_URL, token: launched.token, privateToken: launched.privateToken });
   broadcast();
   return toAuthState();
@@ -86,6 +87,15 @@ export const logout = async (): Promise<AuthState> => {
 export const getActiveToken = (): string => {
   if (!active) throw new NotSignedInError('Accesso richiesto');
   return active.token;
+};
+
+/**
+ * Token e private token della sessione attiva, per l'accoppiamento con il server privato.
+ * Come `getActiveToken`: restano nel main e non passano mai al renderer.
+ */
+export const getActiveSessionSecrets = (): { readonly token: string; readonly privateToken: string | undefined } => {
+  if (!active) throw new NotSignedInError('Accesso richiesto');
+  return { token: active.token, privateToken: active.privateToken };
 };
 
 export const getActiveUser = (): SiteInfo => {

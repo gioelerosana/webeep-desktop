@@ -5,6 +5,7 @@
  */
 import {
   COURSE_SEARCH_PAGE_SIZE,
+  SERVER_PAIRING_KEY_MIN_LENGTH,
   type AuthState,
   type CrashReportSummary,
   type FeedbackKind,
@@ -12,6 +13,7 @@ import {
   type IpcErrorKind,
   type IpcEventName,
   type IpcEvents,
+  type ServerLinkState,
   type Settings,
   type UpdateState,
 } from '../../../../shared/ipc';
@@ -63,6 +65,12 @@ const MOCK_FEEDBACK_TEMPLATE: Record<FeedbackKind, string> = {
   feature: 'feature_request.yml',
 };
 const MOCK_SYSTEM_DESCRIPTION = 'linux (x64), Electron di prova';
+/* Un server il cui nome contiene questo testo simula un server spento (errore `network`), per vedere lo stato di errore. */
+const MOCK_OFFLINE_HOST_PART = 'offline';
+const MOCK_SERVER_OFFLINE_MESSAGE = 'server non raggiungibile';
+const MOCK_SERVER_URL_MESSAGE = 'indirizzo del server non valido';
+const MOCK_PAIRING_KEY_MESSAGE = `la chiave di accoppiamento deve avere almeno ${SERVER_PAIRING_KEY_MIN_LENGTH} caratteri`;
+const MOCK_UNLINKED: ServerLinkState = { serverUrl: null, paired: false };
 
 /** Errore da restituire al renderer come `IpcFailure`, come farebbe il main. */
 export class MockIpcFailure extends Error {
@@ -88,6 +96,16 @@ let pendingCrash: CrashReportSummary | null =
       }
     : null;
 let updateState: UpdateState = initialUpdateState;
+let serverLink: ServerLinkState = MOCK_UNLINKED;
+
+/* Come il main: solo l'origine del server, con https o http verso localhost. Il bridge finto non fa rete. */
+const mockOriginOf = (serverUrl: string): string => {
+  try {
+    return new URL(serverUrl.trim()).origin;
+  } catch {
+    throw new MockIpcFailure('invalid-input', MOCK_SERVER_URL_MESSAGE);
+  }
+};
 
 // Un insieme di listener per evento: un listener di `window:maximized-changed` non deve ricevere `auth:changed`.
 export const listeners: { readonly [TEvent in IpcEventName]: Set<(payload: IpcEvents[TEvent]) => void> } = {
@@ -218,6 +236,19 @@ export const handlers: MockHandlers = {
   },
   'crash:record-renderer-error': (report) => {
     pendingCrash ??= { kind: 'renderer-error', occurredAt: new Date().toISOString(), message: report.message };
+    return null;
+  },
+  // Come il main: il collegamento salva URL e chiave solo se il server (qui finto) li accetta.
+  'server:get-link': () => serverLink,
+  'server:link': ({ serverUrl, pairingKey }) => {
+    if (pairingKey.trim().length < SERVER_PAIRING_KEY_MIN_LENGTH) throw new MockIpcFailure('invalid-input', MOCK_PAIRING_KEY_MESSAGE);
+    const origin = mockOriginOf(serverUrl);
+    if (origin.includes(MOCK_OFFLINE_HOST_PART)) throw new MockIpcFailure('network', MOCK_SERVER_OFFLINE_MESSAGE);
+    serverLink = { serverUrl: origin, paired: true, fullName: mockUser.fullname };
+    return serverLink;
+  },
+  'server:unlink': () => {
+    serverLink = MOCK_UNLINKED;
     return null;
   },
   'window:minimize': () => null,

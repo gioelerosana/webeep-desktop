@@ -31,6 +31,8 @@ import {
   type CoursePage,
   type DownloadResult,
   type FileRequest,
+  type ServerLinkRequest,
+  type ServerLinkState,
   type Settings,
 } from '../../../shared/ipc';
 import { invoke } from './ipc';
@@ -207,6 +209,26 @@ export const useUpdateSettings = (): UseMutationResult<Settings, Error, Partial<
 };
 
 /** Azioni senza dati in cache: chiamale direttamente. */
+/* Server privato: lo stato si legge una volta e si aggiorna dalle mutation, senza rileggerlo a ogni focus della finestra. */
+export const useServerLink = (): UseQueryResult<ServerLinkState> =>
+  useQuery({ queryKey: queryKeys.serverLink, queryFn: () => invoke('server:get-link'), staleTime: Infinity });
+
+export const useLinkServer = (): UseMutationResult<ServerLinkState, Error, ServerLinkRequest> => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: ServerLinkRequest) => invoke('server:link', request),
+    onSuccess: (state) => queryClient.setQueryData(queryKeys.serverLink, state),
+  });
+};
+
+export const useUnlinkServer = (): UseMutationResult<null, Error, void> => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => invoke('server:unlink'),
+    onSuccess: () => queryClient.setQueryData<ServerLinkState>(queryKeys.serverLink, { serverUrl: null, paired: false }),
+  });
+};
+
 export const openExternal = (url: string): Promise<null> => invoke('shell:open-external', url);
 export const revealFile = (path: string): Promise<null> => invoke('files:reveal', path);
 export const chooseDownloadDir = (): Promise<string | null> => invoke('settings:choose-download-dir');

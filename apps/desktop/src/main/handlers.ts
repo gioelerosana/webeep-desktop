@@ -48,6 +48,7 @@ import {
 import { InvalidFeedbackRequestError, openFeedbackIssue } from './feedback.js';
 import { LoginCancelledError } from './login-window.js';
 import { resolveCourseModule } from './notification-context.js';
+import { getServerLink, linkServer, parseServerLinkRequest, ServerLinkError, unlinkServer } from './server-link.js';
 import { getCoursePage, InvalidPageRequestError } from './pages.js';
 import { getSettings, updateSettings } from './settings.js';
 import {
@@ -154,6 +155,8 @@ const FAILURE_KINDS: ReadonlyArray<readonly [ErrorClass, IpcErrorKind]> = [
 const toFailure = (error: unknown): IpcFailure => {
   // Unico errore il cui tipo dipende dall'errore stesso: un token scaduto è `auth`.
   if (error instanceof MoodleApiError) return { kind: error.isAuthError ? 'auth' : 'moodle', message: error.message };
+  // Errori del server privato: il tipo è già scelto dal modulo, il messaggio è una frase fissa.
+  if (error instanceof ServerLinkError) return { kind: error.kind, message: error.message };
   const match = FAILURE_KINDS.find(([errorClass]) => error instanceof errorClass);
   if (match) return { kind: match[1], message: error instanceof Error ? error.message : String(error) };
   return { kind: 'unknown', message: error instanceof Error ? error.message : String(error) };
@@ -245,6 +248,10 @@ const handlers: Handlers = {
     await openFeedbackIssue(kind);
     return null;
   },
+
+  'server:get-link': async () => getServerLink(),
+  'server:link': async (_context, request) => linkServer(parseServerLinkRequest(request)),
+  'server:unlink': async () => unlinkServer(),
 
   'crash:get-pending': async () => getPendingCrashSummary(),
   'crash:report': async () => {
