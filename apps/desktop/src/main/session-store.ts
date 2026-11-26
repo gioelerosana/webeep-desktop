@@ -14,6 +14,7 @@ import { isMissingFile } from './fs-errors.js';
 
 const SESSION_FILE = 'session.bin';
 const FILE_MODE_OWNER_ONLY = 0o600;
+const LOG_PREFIX = '[session]';
 
 const storedSessionSchema = z.object({
   siteUrl: z.string(),
@@ -26,6 +27,11 @@ const sessionPath = (): string => join(app.getPath('userData'), SESSION_FILE);
 
 const canPersistSession = (): boolean => safeStorage.isEncryptionAvailable();
 
+const describeStorageBackend = (): string => {
+  if (process.platform !== 'linux') return process.platform;
+  return safeStorage.getSelectedStorageBackend();
+};
+
 export const loadSession = async (): Promise<StoredSession | undefined> => {
   if (!canPersistSession()) return undefined;
   let encrypted: Buffer;
@@ -35,12 +41,27 @@ export const loadSession = async (): Promise<StoredSession | undefined> => {
     if (isMissingFile(error)) return undefined;
     throw error;
   }
-  const parsed = storedSessionSchema.safeParse(JSON.parse(safeStorage.decryptString(encrypted)));
+  let raw: unknown;
+  try {
+    raw = JSON.parse(safeStorage.decryptString(encrypted));
+  } catch {
+    // Tipicamente accade dopo un cambio di keyring (es. da gnome-keyring a KeePassXC):
+    // rimuoviamo il file illeggibile così il prossimo login salva una sessione valida.
+    console.warn(`${LOG_PREFIX} sessione salvata non decifrabile o corrotta: rimozione di ${SESSION_FILE}`);
+    await clearSession();
+    return undefined;
+  }
+  const parsed = storedSessionSchema.safeParse(raw);
   return parsed.success ? parsed.data : undefined;
 };
 
 export const saveSession = async (session: StoredSession): Promise<void> => {
-  if (!canPersistSession()) return;
+  if (!canPersistSession()) {
+    console.warn(
+      `${LOG_PREFIX} cifratura non disponibile (backend: ${describeStorageBackend()}): la sessione resta solo in memoria`,
+    );
+    return;
+  }
   await writeFile(sessionPath(), safeStorage.encryptString(JSON.stringify(session)), { mode: FILE_MODE_OWNER_ONLY });
 };
 

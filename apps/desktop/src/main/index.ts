@@ -9,6 +9,7 @@ import { restoreSession } from './auth.js';
 import { installCrashReporting } from './crash-report.js';
 import { isDiagnoseMode, runDiagnosis } from './diagnose/index.js';
 import { registerIpcHandlers } from './handlers.js';
+import { configureLinuxKeyring } from './linux-keyring.js';
 import { startUpdater } from './updater.js';
 import { isWebMode, startWebServer } from './web-server.js';
 
@@ -29,6 +30,7 @@ const WINDOW_CHROME: BrowserWindowConstructorOptions =
 
 // Prima di tutto il resto: un crash durante l'avvio va comunque registrato.
 installCrashReporting();
+configureLinuxKeyring();
 registerAssetScheme();
 
 const createMainWindow = (): BrowserWindow => {
