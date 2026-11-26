@@ -12,7 +12,7 @@ dell'app ufficiale Moodle Mobile) per mostrare corsi, materiali, scadenze e
 notifiche in un'app nativa, veloce e con i file a portata di mano.
 
 Niente server intermedio, niente telemetria: l'app parla solo con
-`webeep.polimi.it`, con il token dell'utente. Due eccezioni, senza dati dell'utente:
+`webeep.polimi.it`, con il token dell'utente, e con il proprio server privato se l'utente lo configura (vedi docs/SERVER.md). Due eccezioni, senza dati dell'utente:
 il controllo aggiornamenti legge le release su `github.com`, e le pagine di
 segnalazione di bug e crash su GitHub si aprono nel browser solo su azione dell'utente.
 
@@ -23,6 +23,7 @@ segnalazione di bug e crash su GitHub si aprono nel browser solo su azione dell'
   - `apps/desktop` — app Electron: `src/main` (main process), `src/preload`,
     `src/shared` (contratto IPC), `src/renderer` (React + Tailwind 4 +
     TanStack Query).
+  - `apps/server` — server privato con endpoint MCP per Claude (Node, senza Electron), dettagli in [`docs/SERVER.md`](docs/SERVER.md).
 - Design system: **T3 Code**
   ([artifact](https://claude.ai/artifact/8tZb4puZkxqf3WNUoitVgr)), riassunto
   operativo in [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md).
@@ -52,9 +53,11 @@ priorità. Leggilo a inizio sessione, prima di pianificare.
    finisce nel DOM, nei log, negli errori o negli URL mostrati. Il renderer
    vede immagini e file solo tramite `webeep-asset://` (`toAssetUrl` in
    `src/shared/ipc.ts`) o chiedendo al main di scaricare/aprire.
+   Unica eccezione decisa dall'utente: l'accoppiamento esplicito col proprio server privato (`apps/server`, vedi docs/SERVER.md), dove il token viaggia solo via HTTPS dal main process e resta cifrato sul server.
 2. **Il token su disco solo cifrato** (`safeStorage`,
    `apps/desktop/src/main/session-store.ts`). Se la cifratura non è
    disponibile, il token resta in memoria. Mai in chiaro.
+   Sul server il token è cifrato con AES-256-GCM e `WEBEEP_SECRET_KEY` (vedi docs/SERVER.md).
 3. **Il renderer è non fidato.** `contextIsolation`, `sandbox`, niente
    `nodeIntegration`. L'unica porta è `window.webeep` (preload). Ogni canale IPC
    è dichiarato in `src/shared/ipc.ts` e valida i suoi input nel main (URL solo

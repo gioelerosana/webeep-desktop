@@ -1,8 +1,9 @@
 /*
  * Formattazione per l'interfaccia (italiano). Le date Moodle sono in secondi Unix.
- * Il testo HTML di Moodle si mostra solo come testo: `htmlToText` usa
- * DOMParser, che non esegue script né carica risorse.
+ * Il testo HTML di Moodle si mostra solo come testo: `htmlToText` (da `@webeep/moodle-api`)
+ * non esegue script né carica risorse.
  */
+import { htmlToText as htmlToLines } from '@webeep/moodle-api';
 
 const MS_PER_SECOND = 1000;
 const BYTES_PER_KB = 1024;
@@ -61,9 +62,11 @@ export const formatFileSize = (bytes: number): string => {
 // https://regex101.com/?regex=%5Cs%2B&testString=Lezione%0A%0A%20%20del%204%0ALezione&flavor=javascript&flags=g
 const WHITESPACE_RUNS = /\s+/g;
 
-/** Testo semplice da un frammento HTML di Moodle (riepiloghi, descrizioni, notifiche). */
-export const htmlToText = (html: string): string =>
-  (new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '').replace(WHITESPACE_RUNS, ' ').trim();
+/**
+ * Testo semplice da un frammento HTML di Moodle, su una sola riga (riepiloghi, descrizioni, notifiche):
+ * i capoversi di `htmlToLines` diventano spazi, perché l'interfaccia li mostra su una riga.
+ */
+export const htmlToText = (html: string): string => htmlToLines(html).replace(WHITESPACE_RUNS, ' ').trim();
 
 // Docente tra parentesi in fondo al nome del corso Polimi: "CHIMICA GENERALE (ROSSI LUCA)" cattura "ROSSI LUCA";
 // "CHIMICA GENERALE" non corrisponde.

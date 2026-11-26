@@ -5,6 +5,7 @@ import { AccountCard } from './AccountCard';
 import { AppearanceCard } from './AppearanceCard';
 import { DownloadCard } from './DownloadCard';
 import { FeedbackCard } from './FeedbackCard';
+import { ServerCard } from './ServerCard';
 import { UpdatesCard } from './UpdatesCard';
 
 export const SettingsView = (): ReactNode => (
@@ -14,6 +15,7 @@ export const SettingsView = (): ReactNode => (
     <DownloadCard />
     <UpdatesCard />
     <AccountCard />
+    <ServerCard />
     <FeedbackCard />
     <AboutCard />
   </Page>

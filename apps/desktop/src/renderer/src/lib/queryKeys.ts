@@ -16,6 +16,8 @@ export const queryKeys = {
   upcomingEvents: ['upcoming-events'] as const,
   notifications: ['notifications'] as const,
   settings: ['settings'] as const,
+  /** Stato del collegamento al server privato. */
+  serverLink: ['server-link'] as const,
   /** Chiave del cambio di preferito: serve a `useCourseFavouritePending` per trovare le mutation in corso. */
   courseFavourite: ['course-favourite'] as const,
 };

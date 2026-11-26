@@ -184,3 +184,11 @@ chiusura dell'app, così alla riapertura è già aggiornata. "Riavvia e aggiorna
 in app e si aggiorna con un manager zsync, grazie alle update information e al `.zsync`
 che la CI aggiunge all'AppImage. Dettagli, flusso e procedura di release in
 [UPDATES.md](UPDATES.md).
+
+## Server privato (`apps/server`)
+
+`apps/server` è un processo Node senza Electron, per un solo utente, che il proprietario
+ospita su un proprio server e collega a Claude come connettore MCP. Legge WeBeep in sola
+lettura con `@webeep/moodle-api`. Il desktop non lo usa per le sue viste: lo accoppia una
+sola volta, dal main process, con `POST /pair`, e il token resta cifrato sul server.
+Contratto, endpoint, OAuth e tool MCP sono in [SERVER.md](SERVER.md).

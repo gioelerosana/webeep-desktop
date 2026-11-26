@@ -19,6 +19,11 @@ export {
   type UpcomingEventsOptions,
 } from './endpoints.js';
 export { MoodleApiError, MoodleNetworkError, MoodleResponseShapeError, type MoodleErrorCode } from './errors.js';
+export { htmlToText } from './html.js';
+export { fetchWebeepFile, InvalidWebeepUrlError, isWebeepUrl, sanitizeSegment, toWebserviceUrl, UnsafeRedirectError, WebeepFileTooLargeError, type FetchWebeepFileOptions } from './files.js';
+export { toCoursePage, type CoursePageContent, type CoursePageContentFile } from './course-page.js';
+export { stripAuthTokens } from './sanitize.js';
+export { WEBEEP_SITE_URL } from './site.js';
 export { encodeMoodleParams, type MoodleParams, type MoodleParamValue } from './params.js';
 export {
   COURSE_TIMELINE_CLASSIFICATIONS,
@@ -38,5 +43,3 @@ export {
   type PublicConfig,
   type SiteInfo,
 } from './schemas.js';
-
-export const WEBEEP_SITE_URL = 'https://webeep.polimi.it';

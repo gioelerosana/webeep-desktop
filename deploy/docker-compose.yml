@@ -1,0 +1,56 @@
+# Deploy di @webeep/server dietro Caddy (HTTPS automatico). Guida: deploy/README.md.
+# Avvio: cp .env.example .env, compila i valori, poi `docker compose up -d`.
+
+services:
+  webeep-server:
+    build:
+      # Il contesto è la radice del monorepo, il Dockerfile sta in apps/server.
+      context: ..
+      dockerfile: apps/server/Dockerfile
+    image: webeep-server:local
+    env_file: .env
+    environment:
+      # Dietro il proxy l'IP client è l'ultimo X-Forwarded-For (vedi apps/server/src/node.ts).
+      # Sovrascrive il valore eventualmente presente in .env: qui non è negoziabile.
+      WEBEEP_TRUST_PROXY: "true"
+    volumes:
+      - webeep-data:/data
+    # Nessuna porta pubblicata: il server è raggiungibile solo dal proxy sulla rete interna.
+    expose:
+      - "8787"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    # Caddy riceve solo il dominio: non deve vedere i segreti del server.
+    environment:
+      WEBEEP_DOMAIN: ${WEBEEP_DOMAIN:?impostare WEBEEP_DOMAIN in .env}
+    depends_on:
+      - webeep-server
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificati e stato di Caddy: se si perdono, Caddy ne richiede di nuovi.
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+  # Alternativa a Caddy con Cloudflare Tunnel: nessuna porta pubblica da aprire.
+  # Si avvia senza Caddy: `docker compose up -d webeep-server tunnel` (vedi README, sezione Cloudflare).
+  tunnel:
+    image: cloudflare/cloudflared:2026.11.2
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - webeep-server
+    restart: unless-stopped
+
+volumes:
+  webeep-data:
+  caddy-data:
+  caddy-config:

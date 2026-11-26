@@ -15,11 +15,12 @@ import {
   getCourseModule,
   MoodleApiError,
   MoodleResponseShapeError,
+  stripAuthTokens,
   type CourseModuleContext,
   type MoodleClient,
 } from '@webeep/moodle-api';
 import { z } from 'zod';
-import { InvalidPageRequestError, stripAuthTokens } from './pages.js';
+import { InvalidPageRequestError } from './pages.js';
 
 const LOG_PREFIX = 'Contesto notifica:';
 const INVALID_CALLER_MESSAGE = 'Id del modulo non valido';

@@ -8,6 +8,9 @@
  * rinomina solo a download completo, così un file interrotto non sostituisce
  * mai una copia buona. Se il file locale è già più recente del
  * `timemodified` di Moodle non si riscarica.
+ *
+ * La logica pura (origine, riscrittura del percorso, nomi sicuri, richiesta HTTP)
+ * sta in `@webeep/moodle-api`; qui restano le parti Electron e il disco.
  */
 import { app, shell } from 'electron';
 import { createWriteStream } from 'node:fs';
@@ -16,22 +19,17 @@ import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import { authenticatedFileUrl, MoodleNetworkError, WEBEEP_SITE_URL } from '@webeep/moodle-api';
+import { fetchWebeepFile, isWebeepUrl, sanitizeSegment } from '@webeep/moodle-api';
 import type { DownloadResult, FileRequest } from '../shared/ipc.js';
 import { getActiveToken } from './auth.js';
 import { getSettings } from './settings.js';
 
+// `web-routes.ts` usa ancora il nome dal vecchio punto di ingresso.
+export { sanitizeSegment };
+
 const CACHE_FOLDER = 'file-cache';
 const PART_SUFFIX = '.part';
 const MS_PER_SECOND = 1000;
-const MAX_SEGMENT_LENGTH = 120;
-const FALLBACK_SEGMENT = 'senza-nome';
-// Segmento del percorso dei file protetti di Moodle: solo questi richiedono il token.
-const PLUGINFILE_MARKER = 'pluginfile.php';
-// Le copertine dei corsi e gli avatar arrivano come `/pluginfile.php/…`, che vuole la sessione del browser:
-// con il token del web service il percorso giusto è `/webservice/pluginfile.php/…` (come i file dei moduli).
-const PLUGINFILE_PATH_PREFIX = '/pluginfile.php/';
-const WEBSERVICE_PLUGINFILE_PATH_PREFIX = '/webservice/pluginfile.php/';
 const IMAGE_CONTENT_TYPE_PREFIX = 'image/';
 
 export class InvalidFileRequestError extends Error {
@@ -43,25 +41,18 @@ export class UnexpectedContentError extends Error {
   override readonly name = 'UnexpectedContentError';
 }
 
-// Caratteri non ammessi nei nomi di file su Windows/Linux/macOS e caratteri di controllo:
-// "Analisi 1: esercizi/parte?" → "Analisi 1_ esercizi_parte_"; "Fisica" resta invariato.
-// https://regex101.com/?regex=%5B%3C%3E%3A%22%2F%5C%5C%7C%3F*%5Cx00-%5Cx1f%5D&testString=Analisi%201%3A%20esercizi%2Fparte%3F%0AFisica&flavor=javascript&flags=g
-const UNSAFE_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
-// Punti e spazi finali, vietati su Windows: "slide. " → "slide"; "slide.pdf" resta invariato.
-// https://regex101.com/?regex=%5B.%20%5D%2B%24&testString=slide.%20%0Aslide.pdf&flavor=javascript
-const TRAILING_DOTS_AND_SPACES = /[. ]+$/;
-
-/** Un segmento di percorso sicuro: niente separatori, niente `..`, lunghezza limitata. */
-export const sanitizeSegment = (raw: string): string => {
-  const cleaned = raw.replace(UNSAFE_FILENAME_CHARS, '_').replace(TRAILING_DOTS_AND_SPACES, '').trim();
-  const safe = cleaned === '..' || cleaned === '.' ? '' : cleaned;
-  return safe.slice(0, MAX_SEGMENT_LENGTH) || FALLBACK_SEGMENT;
+/** Un URL che non è di WeBeep non si scarica: è una richiesta non valida. */
+const assertWebeepUrl = (fileUrl: string): void => {
+  if (!isWebeepUrl(fileUrl)) throw new InvalidFileRequestError('Il file non proviene da WeBeep');
 };
 
-const assertWebeepUrl = (fileUrl: string): void => {
-  if (new URL(fileUrl).origin !== new URL(WEBEEP_SITE_URL).origin) {
-    throw new InvalidFileRequestError('Il file non proviene da WeBeep');
-  }
+/**
+ * Richiesta a un file di WeBeep con il token della sessione attiva. Il token passa solo
+ * alla libreria e non esce da questo processo.
+ */
+const requestWebeepFile = async (fileUrl: string): Promise<Response> => {
+  assertWebeepUrl(fileUrl);
+  return fetchWebeepFile({ fileUrl, token: getActiveToken() });
 };
 
 const isUpToDate = async (path: string, timeModified: number | undefined): Promise<boolean> => {
@@ -74,34 +65,8 @@ const isUpToDate = async (path: string, timeModified: number | undefined): Promi
   }
 };
 
-const webservicePath = (pathname: string): string =>
-  pathname.startsWith(PLUGINFILE_PATH_PREFIX)
-    ? `${WEBSERVICE_PLUGINFILE_PATH_PREFIX}${pathname.slice(PLUGINFILE_PATH_PREFIX.length)}`
-    : pathname;
-
 /**
- * URL con cui il main richiede un file di WeBeep. Il token si aggiunge solo ai file protetti e
- * il risultato è una credenziale: non va mai mostrato, loggato o restituito al renderer.
- */
-const requestUrlOf = (fileUrl: string): string => {
-  const url = new URL(fileUrl);
-  if (!url.pathname.includes(PLUGINFILE_MARKER)) return fileUrl;
-  url.pathname = webservicePath(url.pathname);
-  return authenticatedFileUrl(url.toString(), getActiveToken());
-};
-
-/** Richiesta a un file di WeBeep: se il sito non risponde con successo è un errore, qualunque sia il tipo. */
-const fetchWebeepFile = async (fileUrl: string): Promise<Response> => {
-  assertWebeepUrl(fileUrl);
-  const response = await fetch(requestUrlOf(fileUrl));
-  if (!response.ok || !response.body) {
-    throw new MoodleNetworkError(`Download non riuscito (HTTP ${response.status})`, response.status);
-  }
-  return response;
-};
-
-/**
- * Un'immagine di WeBeep ha un Content-Type `image/*`. Una pagina HTML (login o errore) va scartata
+ * Una immagine di WeBeep ha un Content-Type `image/*`. Una pagina HTML (login o errore) va scartata
  * qui, così il renderer mostra il suo ripiego invece di un'immagine rotta.
  */
 const requireImage = async (response: Response): Promise<Response> => {
@@ -112,7 +77,8 @@ const requireImage = async (response: Response): Promise<Response> => {
 };
 
 const fetchToFile = async (fileUrl: string, destination: string): Promise<void> => {
-  const response = await fetchWebeepFile(fileUrl);
+  const response = await requestWebeepFile(fileUrl);
+  if (!response.body) throw new UnexpectedContentError('La risposta di WeBeep è vuota');
   await mkdir(dirname(destination), { recursive: true });
   const partial = `${destination}${PART_SUFFIX}`;
   try {
@@ -157,11 +123,14 @@ export type WebeepFileStream = {
   readonly body: Readable;
 };
 
-const toWebeepFileStream = (response: Response): WebeepFileStream => ({
-  contentType: response.headers.get('content-type') ?? undefined,
-  // Stesso cast di `fetchToFile`: `fetchWebeepFile` ha già escluso il corpo assente.
-  body: Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
-});
+const toWebeepFileStream = (response: Response): WebeepFileStream => {
+  if (!response.body) throw new UnexpectedContentError('La risposta di WeBeep è vuota');
+  return {
+    contentType: response.headers.get('content-type') ?? undefined,
+    // Stesso cast di `fetchToFile`: il corpo assente è già escluso sopra.
+    body: Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
+  };
+};
 
 /**
  * Apre lo stream di un file di WeBeep senza scaricarlo su disco. Accetta solo URL di
@@ -169,11 +138,11 @@ const toWebeepFileStream = (response: Response): WebeepFileStream => ({
  * chi riceve lo stream vede solo il contenuto e il Content-Type.
  */
 export const openWebeepFile = async (fileUrl: string): Promise<WebeepFileStream> =>
-  toWebeepFileStream(await fetchWebeepFile(fileUrl));
+  toWebeepFileStream(await requestWebeepFile(fileUrl));
 
 /** Risposta di un'immagine di WeBeep (copertina, avatar, icona), da restituire al protocollo `webeep-asset://`. */
 export const fetchWebeepImage = async (fileUrl: string): Promise<Response> =>
-  requireImage(await fetchWebeepFile(fileUrl));
+  requireImage(await requestWebeepFile(fileUrl));
 
 /** Come `openWebeepFile`, ma rifiuta le risposte che non sono immagini. */
 export const openWebeepImage = async (fileUrl: string): Promise<WebeepFileStream> =>

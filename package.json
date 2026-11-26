@@ -10,10 +10,12 @@
     "dev:web": "pnpm --filter @webeep/desktop dev:web",
     "diagnose": "pnpm --filter @webeep/desktop diagnose",
     "web": "pnpm --filter @webeep/desktop web",
-    "build": "pnpm -r typecheck && pnpm --filter @webeep/desktop build",
+    "server:dev": "pnpm --filter @webeep/server dev",
+    "server:build": "pnpm --filter @webeep/server build",
+    "build": "pnpm -r typecheck && pnpm --filter @webeep/desktop build && pnpm --filter @webeep/server build",
     "dist:linux": "pnpm typecheck && pnpm --filter @webeep/desktop dist:linux",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @webeep/moodle-api test && pnpm test:release",
+    "test": "pnpm --filter @webeep/moodle-api test && pnpm --filter @webeep/server test && pnpm test:release",
     "test:release": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {

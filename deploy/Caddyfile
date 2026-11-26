@@ -1,0 +1,27 @@
+# Reverse proxy HTTPS per @webeep/server. Il dominio arriva da WEBEEP_DOMAIN (in .env),
+# lo stesso host di WEBEEP_PUBLIC_URL. Caddy ottiene il certificato da solo.
+{$WEBEEP_DOMAIN} {
+	# Caddy aggiunge X-Forwarded-For con l'IP reale del client, in coda alla lista:
+	# il server legge l'ultimo valore (WEBEEP_TRUST_PROXY=true in docker-compose.yml).
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# /mcp è lo streaming del connettore: nessun buffering, ogni chunk parte subito.
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		reverse_proxy webeep-server:8787 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy webeep-server:8787
+	}
+}
