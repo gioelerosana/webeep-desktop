@@ -1,6 +1,6 @@
 /*
- * `POST /register` (RFC 7591, docs/SERVER.md §5.2). Endpoint aperto: la protezione è la
- * password di `/authorize`. Al ventunesimo client si eliminano i più vecchi, con i loro
+ * `POST /register` (RFC 7591, docs/SERVER.md §5.2). Endpoint aperto: la protezione è il
+ * consenso dato in `/authorize`. Al ventunesimo client si eliminano i più vecchi, con i loro
  * refresh token e i loro access token in memoria.
  */
 import { z } from 'zod';

@@ -1,4 +1,6 @@
-// Versioni di release nel formato vYY.MAJOR.MINOR (docs/RELEASE.md §Versioni).
+// Versioni di release nel formato vAA.MAJOR.MINOR (docs/RELEASE.md §Versioni): AA sono le
+// ultime due cifre dell'anno, MAJOR il secondo numero (breaking change, azzera MINOR),
+// MINOR il terzo numero (feat, fix e simili). Es. 26.3.0 + feat → 26.3.1.
 //
 //   node scripts/release-version.mjs check-title --title "feat(map): …"
 //       controlla il titolo di una PR in Conventional Commits e stampa «tipo → peso»
@@ -6,8 +8,9 @@
 //       analizza i commit dall'ultimo tag v* a HEAD e stampa un JSON con
 //       {lastTag, bump, included, ignored, nonConforming}
 //   node scripts/release-version.mjs next [--bump auto|major|minor] [--date 2026-10-25T…]
-//       stampa la versione successiva (senza «v»); senza --bump il tipo viene dai commit
-//   node scripts/release-version.mjs set 26.1.0
+//       stampa la versione successiva (senza «v»); senza --bump il tipo viene dai commit.
+//       major = secondo numero (azzera il terzo), minor = terzo numero
+//   node scripts/release-version.mjs set 26.3.1
 //       scrive la versione nel campo `version` di tutti i MANIFESTS
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -25,9 +28,11 @@ export const MANIFESTS = [
   'packages/ui-kit/package.json',
 ];
 
-// Tipo Conventional Commits → peso nella prossima release (major, minor, none).
+// Tipo Conventional Commits → peso nella prossima release: `major` (secondo numero, per i
+// breaking change con «!») o `minor` (terzo numero), oppure `none`. Il tipo feat conta come
+// `minor`: una funzione nuova è una release di manutenzione, non un salto di versione.
 const BUMP_BY_TYPE = {
-  feat: 'major',
+  feat: 'minor',
   fix: 'minor',
   perf: 'minor',
   refactor: 'minor',
@@ -43,7 +48,6 @@ const BUMP_BY_TYPE = {
 const BUMP_RANK = { none: 0, minor: 1, major: 2 };
 const OVERRIDE_BUMPS = ['auto', 'major', 'minor'];
 const SHORT_YEAR_MODULO = 100;
-const FIRST_MAJOR_OF_YEAR = 1;
 
 // Accetta "feat(map): nuova barra", "fix!: x", "docs: guida".
 // Rifiuta "feat:senza spazio" (manca lo spazio dopo i due punti) e "Aggiunge la barra".
@@ -136,16 +140,18 @@ function latestCountersOfYear(tags, yy) {
     }, null);
 }
 
-/** Versione successiva: YY dalla data UTC, contatori dai tag dello stesso anno. */
+/**
+ * Versione successiva: AA dalla data UTC, contatori dai tag dello stesso anno. La prima
+ * release di un anno è sempre AA.0.0, qualunque sia il tipo (i tag di anni precedenti, anche
+ * v0.0.2, non contano). Poi major alza il secondo numero e azzera il terzo, minor alza il terzo.
+ */
 export function nextVersion(tags, bump, date = new Date()) {
   if (bump !== 'major' && bump !== 'minor') {
     throw new Error(`Bump "${bump}" non valido: atteso major o minor.`);
   }
   const yy = date.getUTCFullYear() % SHORT_YEAR_MODULO;
   const latest = latestCountersOfYear(tags, yy);
-  // La prima release di un anno è sempre YY.1.0, qualunque sia il tipo. I tag di anni
-  // precedenti (anche v0.0.2) non contano.
-  if (latest === null) return `${yy}.${FIRST_MAJOR_OF_YEAR}.0`;
+  if (latest === null) return `${yy}.0.0`;
   if (bump === 'major') return `${yy}.${latest[0] + 1}.0`;
   return `${yy}.${latest[0]}.${latest[1] + 1}`;
 }

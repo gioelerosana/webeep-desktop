@@ -10,7 +10,9 @@ reverse proxy HTTPS. Il proxy è Caddy (certificato automatico) oppure Cloudflar
 - **Un dominio** (es. `webeep.example.it`) con un record DNS che punta al server.
 - Con Caddy: porte **80** e **443** raggiungibili da internet (servono per il certificato).
   Con Cloudflare Tunnel non serve aprire nessuna porta.
-- `openssl` per generare i segreti.
+- `openssl` per generare la chiave dello stato.
+- Un'istanza **Authentik** raggiungibile in **HTTPS** dal container del server, con un utente
+  nel gruppo `webeep` (vedi la sezione [Authentik](#authentik)).
 
 ## 1. Preparare la configurazione
 
@@ -20,12 +22,10 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Genera i tre segreti e incollali in `.env`:
+Genera la chiave dello stato e incollala in `.env`:
 
 ```sh
 openssl rand -base64 32   # WEBEEP_SECRET_KEY (chiave dello stato, 44 caratteri)
-openssl rand -base64 18   # WEBEEP_ADMIN_PASSWORD (la password di /authorize, almeno 12 caratteri)
-openssl rand -hex 32      # WEBEEP_PAIRING_KEY (chiave dell'app desktop, almeno 32 caratteri)
 ```
 
 Poi compila il dominio, in due forme coerenti:
@@ -35,17 +35,65 @@ WEBEEP_DOMAIN=webeep.example.it
 WEBEEP_PUBLIC_URL=https://webeep.example.it
 ```
 
-`WEBEEP_PUBLIC_URL` non deve avere slash finale. Il connettore Claude sarà `WEBEEP_PUBLIC_URL/mcp`.
+`WEBEEP_PUBLIC_URL` non deve avere slash finale. Il connettore Claude sarà `WEBEEP_PUBLIC_URL/mcp`,
+il redirect URI verso Authentik `WEBEEP_PUBLIC_URL/oidc/callback`.
+
+Compila anche le variabili di login (`WEBEEP_OIDC_ISSUER`, `WEBEEP_OIDC_CLIENT_ID`,
+`WEBEEP_OIDC_CLIENT_SECRET`, `WEBEEP_OIDC_ALLOWED_GROUP`): i valori arrivano da Authentik, vedi
+la sezione [Authentik](#authentik) qui sotto.
 
 **Conserva `WEBEEP_SECRET_KEY` anche fuori dal server** (per esempio in un password manager):
 senza di lei lo stato cifrato non si legge più, e nemmeno un backup serve a qualcosa.
 
+## Authentik
+
+Il login del server passa da Authentik (OIDC). Chi accede deve essere membro del gruppo
+`webeep`. Si configura una sola volta, in Authentik:
+
+1. **Gruppo**: crea il gruppo `webeep` e aggiungici il tuo utente. Chi non è nel gruppo
+   non entra, anche se ha un account Authentik.
+2. **Provider OAuth2/OpenID**: crea un provider di tipo **OAuth2/OpenID Provider** con
+   client type **Confidential** (ha un client secret). Imposta:
+   - **Redirect URI** (strict): esattamente `https://<dominio>/oidc/callback`, per esempio
+     `https://webeep.example.it/oidc/callback`. Un valore diverso fa fallire il login.
+   - **Scope**: `openid`, `profile`, `email` e `groups`, così il token porta i gruppi
+     dell'utente.
+   - Annota **Client ID** e **Client secret**.
+3. **Applicazione**: crea un'applicazione con **slug `webeep`** e collegale il provider del
+   punto 2. L'issuer è quello dell'applicazione, per esempio
+   `https://auth.example.com/application/o/webeep/`: va in `WEBEEP_OIDC_ISSUER`.
+
+In `.env`:
+
+| Variabile | Valore | Note |
+|---|---|---|
+| `WEBEEP_OIDC_ISSUER` | issuer dell'applicazione `webeep` | URL `https`, senza query. Lo slash finale è facoltativo. |
+| `WEBEEP_OIDC_CLIENT_ID` | Client ID del provider | |
+| `WEBEEP_OIDC_CLIENT_SECRET` | Client secret del provider | Segreto: mai in log, pagine o backup in chiaro. |
+| `WEBEEP_OIDC_ALLOWED_GROUP` | `webeep` (default) | Gruppo Authentik richiesto per accedere. |
+
+Il container deve raggiungere Authentik **in HTTPS**: il server legge la configurazione OIDC
+dall'issuer al primo login. Se Authentik non risponde, il login mostra un errore e il server
+resta avviato: l'avvio non contatta Authentik.
+
 ## 2. Avvio
 
 ```sh
-docker compose up -d --build
+docker compose up -d --build           # build locale; con l'immagine GHCR vedi sotto
 docker compose logs -f webeep-server   # Ctrl+C per uscire; deve comparire "in ascolto"
 ```
+
+**Immagine GHCR (alternativa al build).** Ogni release pubblica l'immagine privata
+`ghcr.io/gioelerosana/webeep-server` con il tag di versione e `latest`. Per usarla:
+
+```sh
+echo "<token GitHub con read:packages>" | docker login ghcr.io -u <utente GitHub> --password-stdin
+```
+
+In `.env` imposta `WEBEEP_VERSION=26.3.1` (o la versione voluta; vuoto = `latest`), poi in
+`docker-compose.yml` usa la riga `image: ghcr.io/...` al posto del blocco `build` (è commentata lì).
+Poi `docker compose up -d` senza `--build`. Il tag di versione è preferibile a `latest`:
+l'aggiornamento diventa una scelta esplicita.
 
 Al primo avvio Caddy ottiene il certificato per `WEBEEP_DOMAIN`: serve che il DNS sia già
 puntato al server e che le porte 80/443 siano aperte.
@@ -60,20 +108,22 @@ docker compose ps                              # webeep-server: healthy
 Se `/healthz` non risponde, controlla i log di `caddy` (certificato) e di `webeep-server`
 (configurazione: il messaggio nomina la variabile sbagliata, mai il suo valore).
 
-## 4. Accoppiamento dall'app desktop
+## 4. Collegamento dell'app desktop
 
-1. Nell'app WeBeep Desktop accedi al tuo account WeBeep (il token resta nel desktop).
-2. Vai in **Impostazioni → Server privato**.
-3. Inserisci l'URL `https://webeep.example.it` e la chiave di accoppiamento (`WEBEEP_PAIRING_KEY`).
-4. Premi **collega al server**.
+1. Nell'app WeBeep Desktop vai in **Impostazioni → Server privato**.
+2. Inserisci l'URL `https://webeep.example.it`.
+3. Premi **collega al server**: si apre il browser sul login Authentik. Accedi con l'utente del
+   gruppo `webeep`.
 
 Il server riceve il token WeBeep solo da questo passaggio, e lo tiene cifrato in `state.bin`.
+Non serve nessuna chiave da copiare nell'app.
 
 ## 5. Collegamento a Claude
 
 1. In Claude vai in **Impostazioni → Connettori → aggiungi connettore personalizzato**.
 2. URL: `https://webeep.example.it/mcp`.
-3. Claude apre la pagina di autorizzazione del server: inserisci `WEBEEP_ADMIN_PASSWORD`.
+3. Claude apre il login Authentik: accedi con l'utente del gruppo `webeep`.
+4. Compare la pagina di consenso del server: controlla il client che chiede l'accesso e conferma.
 
 Il connettore espone solo lettura (corsi, materiali, scadenze, notifiche): il server non
 scrive mai su WeBeep.
@@ -98,12 +148,12 @@ docker run --rm \
 
 ## Rotazione dei segreti
 
-- **`WEBEEP_ADMIN_PASSWORD`**: cambia il valore in `.env`, poi `docker compose up -d webeep-server`.
-  Le sessioni già collegate restano valide fino alla scadenza dei token.
-- **`WEBEEP_PAIRING_KEY`**: cambia il valore in `.env`, riavvia `webeep-server`, poi ricollega
-  dall'app desktop con la nuova chiave.
-- **Revocare tutti i collegamenti Claude**: dall'app desktop, in Impostazioni → Server privato,
-  scollega il server (`DELETE /pair`). Revoca tutti i refresh token; poi ricollega se serve.
+- **`WEBEEP_OIDC_CLIENT_SECRET`**: rigenera il client secret nel provider Authentik, cambia il
+  valore in `.env`, poi `docker compose up -d webeep-server`.
+- **Revocare tutti i collegamenti**: dall'app desktop, in Impostazioni → Server privato,
+  scollega il server (`DELETE /pair`): revoca i refresh token e cancella la sessione WeBeep.
+  Per togliere l'accesso a Claude senza toccare il desktop, rimuovi l'utente dal gruppo
+  `webeep` in Authentik: al login successivo l'accesso è negato.
 - **`WEBEEP_SECRET_KEY`**: nella v1 non c'è una rotazione a caldo. Con la chiave nuova
   `state.bin` non si decifra e il server si rifiuta di avviarsi (senza toccare il file).
   La rotazione quindi azzera il collegamento con WeBeep e con Claude, e si fa così:
@@ -126,6 +176,7 @@ docker run --rm \
 git pull                              # nella radice del repository
 cd deploy
 docker compose up -d --build          # ricostruisce l'immagine, riavvia solo ciò che cambia
+# Con l'immagine GHCR: cambia WEBEEP_VERSION in .env, poi `docker compose pull && docker compose up -d`.
 docker image prune                    # facoltativo: rimuove le immagini vecchie
 ```
 

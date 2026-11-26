@@ -2,7 +2,7 @@
  * Cifratura dello stato con AES-256-GCM via `crypto.subtle` (docs/SERVER.md §3.1).
  * Formato su disco: `iv (12 byte) || ciphertext+tag`, con un iv casuale a ogni scrittura.
  */
-import { stateSchema, type WebeepState } from './schema.js';
+import { stateFileSchema, type WebeepState } from './schema.js';
 
 const AES_ALGORITHM = 'AES-GCM';
 const IV_BYTES = 12;
@@ -37,7 +37,10 @@ export const encryptState = async (key: CryptoKey, state: WebeepState): Promise<
   return concatBytes(iv, ciphertext);
 };
 
-/** Decifra e valida lo stato. Chiave errata, file corrotto o schema non valido: `StateUnreadableError`. */
+/**
+ * Decifra e valida lo stato, convertendo la v1 alla v2. Chiave errata, file corrotto o schema
+ * non valido: `StateUnreadableError`.
+ */
 export const decryptState = async (key: CryptoKey, bytes: Uint8Array): Promise<WebeepState> => {
   if (bytes.byteLength <= IV_BYTES + TAG_BYTES) throw new StateUnreadableError();
 
@@ -47,7 +50,7 @@ export const decryptState = async (key: CryptoKey, bytes: Uint8Array): Promise<W
 
   const plaintext = await decryptBody(key, iv, body);
   const json = parseJson(plaintext);
-  const parsed = stateSchema.safeParse(json);
+  const parsed = stateFileSchema.safeParse(json);
   if (!parsed.success) throw new StateUnreadableError();
   return parsed.data;
 };

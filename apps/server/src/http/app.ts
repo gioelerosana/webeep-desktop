@@ -8,6 +8,7 @@
 import type { Config } from '../config.js';
 import { createMcpHandler } from '../mcp/index.js';
 import { createOAuth, type OAuth } from '../oauth/index.js';
+import { createOidc, type Oidc } from '../oidc/index.js';
 import { createPair, type Pair } from '../pair.js';
 import type { StateManager } from '../state/manager.js';
 import { bufferRequestBody } from './body.js';
@@ -26,11 +27,12 @@ export type App = {
 
 const HEALTH_PATH = '/healthz';
 const PAIR_PATH = '/pair';
+const PAIR_START_PATH = '/pair/start';
 const MCP_PATH = '/mcp';
 const PROTECTED_RESOURCE_PATH = '/.well-known/oauth-protected-resource';
 const PAIR_METHODS: ReadonlySet<string> = new Set(['GET', 'POST', 'DELETE']);
 const HEALTH_BODY = 'ok';
-// 5 fallimenti in 15 minuti per IP, sia per /pair sia per la password di /authorize.
+// 5 fallimenti in 15 minuti per IP, per /pair.
 const MAX_FAILED_ATTEMPTS = 5;
 const FAILURE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -39,10 +41,10 @@ const errorName = (error: unknown): string => (error instanceof Error ? error.na
 export const createApp = (deps: AppDeps): App => {
   const { config, store } = deps;
   const pairRateLimiter = createRateLimiter({ windowMs: FAILURE_WINDOW_MS, max: MAX_FAILED_ATTEMPTS });
-  const adminRateLimiter = createRateLimiter({ windowMs: FAILURE_WINDOW_MS, max: MAX_FAILED_ATTEMPTS });
 
-  const oauth: OAuth = createOAuth({ config, store, rateLimiter: adminRateLimiter });
-  const pair: Pair = createPair({ config, store, rateLimiter: pairRateLimiter, oauth });
+  const oidc: Oidc = createOidc({ config });
+  const oauth: OAuth = createOAuth({ config, store, oidc });
+  const pair: Pair = createPair({ config, store, rateLimiter: pairRateLimiter, oauth, oidc });
   const mcp = createMcpHandler({ config, store });
 
   const handleMcp = async (request: Request): Promise<Response> => {
@@ -69,6 +71,15 @@ export const createApp = (deps: AppDeps): App => {
       if (!PAIR_METHODS.has(request.method)) return emptyResponse(405, { Allow: 'GET, POST, DELETE' });
       return pair.handle(request, ctx);
     }
+
+    if (pathname === PAIR_START_PATH) {
+      if (request.method !== 'GET') return emptyResponse(405, { Allow: 'GET' });
+      return pair.start(request);
+    }
+
+    // Il callback OIDC è di questo router: prima di OAuth, che non conosce `/oidc/callback`.
+    const oidcResponse = await oidc.handle(request, ctx);
+    if (oidcResponse !== null) return oidcResponse;
 
     const oauthResponse = await oauth.handle(request, ctx);
     if (oauthResponse !== null) return oauthResponse;

@@ -221,10 +221,14 @@ export const useLinkServer = (): UseMutationResult<ServerLinkState, Error, Serve
   });
 };
 
-export const useUnlinkServer = (): UseMutationResult<null, Error, void> => {
+export const useCancelServerLink = (): UseMutationResult<null, Error, void> =>
+  useMutation({ mutationFn: () => invoke('server:cancel-link') });
+
+/** `localOnly`: rimuove solo la configurazione di questo computer, senza chiamare il server. */
+export const useUnlinkServer = (): UseMutationResult<null, Error, boolean> => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => invoke('server:unlink'),
+    mutationFn: (localOnly: boolean) => invoke('server:unlink', { localOnly }),
     onSuccess: () => queryClient.setQueryData<ServerLinkState>(queryKeys.serverLink, { serverUrl: null, paired: false }),
   });
 };

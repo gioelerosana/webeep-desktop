@@ -1,25 +1,34 @@
 /*
- * `GET /authorize` e `POST /authorize` (docs/SERVER.md §5.3 e §5.4).
+ * `GET /authorize` (docs/SERVER.md §5.3) e `POST /authorize/consent` (§5.4).
  *
  * Due classi di errore, come chiede la RFC 6749 §4.1.2.1:
  * - client o redirect_uri non validi: pagina di errore, MAI redirect (anti open redirect);
  * - tutto il resto: redirect 302 verso il redirect_uri registrato, con `error` e `state`.
+ *
+ * Flusso: `/authorize` valida e avvia il login Authentik (purpose `claude-authorize`). Dopo il
+ * login, la continuazione mostra la pagina di consenso con un token CSRF monouso. Solo il POST
+ * del consenso, con quel token e `decision=allow`, emette il codice di autorizzazione.
  */
-import { constantTimeEqual, randomBase64Url, sha256, sha256Hex } from '../crypto.js';
+import type { ClaudeAuthorizePayload, OidcContinuation, OidcIdentity } from '../oidc/index.js';
+import { randomBase64Url, sha256Hex } from '../crypto.js';
 import {
   AUTHORIZATION_CODE_BYTES,
   AUTHORIZATION_CODE_TTL_MS,
   CODE_CHALLENGE_METHOD_S256,
+  CONSENT_TOKEN_BYTES,
+  CONSENT_TTL_MS,
+  DECISION_ALLOW,
+  DECISION_DENY,
+  ERROR_ACCESS_DENIED,
   RESPONSE_TYPE_CODE,
 } from './constants.js';
 import type { OAuthContext, Route } from './context.js';
-import { authorizePageResponse, errorPageResponse, type AuthorizePage, type HiddenField } from './html.js';
+import { consentPageResponse, errorPageResponse } from './html.js';
 import { isPkceValue, isRepeated, singleValue } from './params.js';
 import { redirectResponse } from './responses.js';
 import { pruneExpired } from './tokens.js';
 import { byMethod } from './route.js';
 
-const RATE_LIMIT_WINDOW_MINUTES = 15;
 const SINGLE_VALUED_PARAMS: readonly string[] = [
   'response_type',
   'code_challenge',
@@ -28,17 +37,13 @@ const SINGLE_VALUED_PARAMS: readonly string[] = [
   'resource',
 ];
 
-type AuthorizeRequest = {
-  readonly clientId: string;
-  readonly clientName: string | undefined;
-  readonly redirectUri: string;
-  readonly codeChallenge: string;
-  readonly resource: string | undefined;
-  readonly state: string | undefined;
-};
+const UNNAMED_USER = 'utente Authentik';
+const CONSENT_EXPIRED_MESSAGE = 'richiesta scaduta: riprova il collegamento da Claude';
+const INVALID_DECISION_MESSAGE = 'richiesta non valida: riprova il collegamento da Claude';
+const ACCESS_DENIED_DESCRIPTION = "l'utente ha negato l'accesso";
 
 type AuthorizeCheck =
-  | { readonly kind: 'ok'; readonly request: AuthorizeRequest }
+  | { readonly kind: 'ok'; readonly request: ClaudeAuthorizePayload }
   | { readonly kind: 'unregistered' }
   | {
       readonly kind: 'redirect-error';
@@ -108,55 +113,70 @@ const rejectionResponse = (check: Exclude<AuthorizeCheck, { readonly kind: 'ok' 
   return redirectResponse(location.toString());
 };
 
-const optionalField = (name: string, value: string | undefined): readonly HiddenField[] =>
-  value === undefined ? [] : [[name, value]];
-
-/** Campi nascosti del form: vengono rivalidati a ogni POST, perché il browser può manometterli. */
-const pageFor = (request: AuthorizeRequest, errorMessage: string | undefined): AuthorizePage => ({
-  clientName: request.clientName,
-  fields: [
-    ['client_id', request.clientId],
-    ['redirect_uri', request.redirectUri],
-    ['response_type', RESPONSE_TYPE_CODE],
-    ['code_challenge', request.codeChallenge],
-    ['code_challenge_method', CODE_CHALLENGE_METHOD_S256],
-    ...optionalField('state', request.state),
-    ...optionalField('resource', request.resource),
-  ],
-  redirectOrigin: new URL(request.redirectUri).origin,
-  errorMessage,
-});
-
-const passwordMatches = async (ctx: OAuthContext, submitted: string): Promise<boolean> => {
-  const [given, expected] = await Promise.all([sha256(submitted), sha256(ctx.config.adminPassword)]);
-  return constantTimeEqual(given, expected);
+/** Redirect verso il redirect_uri registrato con i campi dati e, se presente, `state`. */
+const redirectWithFields = (
+  params: ClaudeAuthorizePayload,
+  fields: readonly (readonly [name: string, value: string])[],
+): Response => {
+  const location = new URL(params.redirectUri);
+  fields.forEach(([name, value]) => location.searchParams.append(name, value));
+  if (params.state !== undefined) location.searchParams.append('state', params.state);
+  return redirectResponse(location.toString());
 };
+
+/** Nome mostrato nel consenso: quello Authentik, altrimenti l'email, altrimenti un testo di ripiego. */
+const userLabel = (identity: OidcIdentity): string => identity.name ?? identity.email ?? UNNAMED_USER;
+
+/**
+ * Continuazione del login `claude-authorize` (docs/SERVER.md §10.2, passo 9): salva i parametri
+ * validati sotto un token CSRF monouso e mostra la pagina di consenso.
+ */
+export const createConsentContinuation =
+  (ctx: OAuthContext): OidcContinuation<'claude-authorize'> =>
+  async (payload, identity) => {
+    const consentToken = randomBase64Url(CONSENT_TOKEN_BYTES);
+    const now = Date.now();
+    pruneExpired(ctx.consents, now);
+    ctx.consents.set(consentToken, { params: payload, expiresAt: now + CONSENT_TTL_MS });
+    return consentPageResponse(200, {
+      clientName: payload.clientName,
+      redirectHost: new URL(payload.redirectUri).host,
+      userLabel: userLabel(identity),
+      consentToken,
+      redirectOrigin: new URL(payload.redirectUri).origin,
+    });
+  };
 
 const authorizeGet: Route = async (ctx, request) => {
   const check = await checkAuthorizeRequest(ctx, new URL(request.url).searchParams);
   if (check.kind !== 'ok') return rejectionResponse(check);
-  return authorizePageResponse(200, pageFor(check.request, undefined));
+  return ctx.oidc.startLogin('claude-authorize', check.request);
 };
 
-const authorizePost: Route = async (ctx, request, requestContext) => {
+/**
+ * Risposta al consenso (docs/SERVER.md §5.4). Il token è monouso: la voce esce dalla memoria
+ * in ogni caso, anche se scaduta o con una decisione non valida.
+ */
+const consentPost: Route = async (ctx, request) => {
   const params = new URLSearchParams(await request.text());
-  const check = await checkAuthorizeRequest(ctx, params);
-  if (check.kind !== 'ok') return rejectionResponse(check);
-  const authorized = check.request;
-
-  // Il limite si controlla prima della password: oltre la soglia non si confronta nulla.
-  if (ctx.rateLimiter.isLimited(requestContext.clientIp)) {
-    return errorPageResponse(
-      429,
-      'Accesso sospeso',
-      `troppi tentativi: riprova tra ${RATE_LIMIT_WINDOW_MINUTES} minuti`,
-    );
+  const token = singleValue(params, 'consent');
+  const record = token === undefined ? undefined : ctx.consents.get(token);
+  if (token !== undefined) ctx.consents.delete(token);
+  if (record === undefined || record.expiresAt <= Date.now()) {
+    return errorPageResponse(400, 'Richiesta scaduta', CONSENT_EXPIRED_MESSAGE);
   }
 
-  const password = singleValue(params, 'password') ?? '';
-  if (!(await passwordMatches(ctx, password))) {
-    ctx.rateLimiter.recordFailure(requestContext.clientIp);
-    return authorizePageResponse(401, pageFor(authorized, 'password errata'));
+  const decision = singleValue(params, 'decision');
+  if (decision !== DECISION_ALLOW && decision !== DECISION_DENY) {
+    return errorPageResponse(400, 'Richiesta non valida', INVALID_DECISION_MESSAGE);
+  }
+
+  const authorized = record.params;
+  if (decision === DECISION_DENY) {
+    return redirectWithFields(authorized, [
+      ['error', ERROR_ACCESS_DENIED],
+      ['error_description', ACCESS_DENIED_DESCRIPTION],
+    ]);
   }
 
   const code = randomBase64Url(AUTHORIZATION_CODE_BYTES);
@@ -170,14 +190,8 @@ const authorizePost: Route = async (ctx, request, requestContext) => {
     resource: authorized.resource,
     expiresAt: now + AUTHORIZATION_CODE_TTL_MS,
   });
-
-  const location = new URL(authorized.redirectUri);
-  location.searchParams.append('code', code);
-  if (authorized.state !== undefined) location.searchParams.append('state', authorized.state);
-  return redirectResponse(location.toString());
+  return redirectWithFields(authorized, [['code', code]]);
 };
 
-export const authorizeRoute: Route = byMethod([
-  ['GET', authorizeGet],
-  ['POST', authorizePost],
-]);
+export const authorizeRoute: Route = byMethod([['GET', authorizeGet]]);
+export const consentRoute: Route = byMethod([['POST', consentPost]]);

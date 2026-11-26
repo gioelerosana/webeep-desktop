@@ -3,11 +3,15 @@
 
 services:
   webeep-server:
+    # Due modi per avere l'immagine. Attivo: build locale dal codice del repository.
     build:
       # Il contesto è la radice del monorepo, il Dockerfile sta in apps/server.
       context: ..
       dockerfile: apps/server/Dockerfile
     image: webeep-server:local
+    # Alternativa: immagine pubblicata da ogni release (privata, richiede `docker login ghcr.io`).
+    # Per usarla, sostituisci il blocco `build` e `image` sopra con la riga seguente:
+    # image: ghcr.io/gioelerosana/webeep-server:${WEBEEP_VERSION:-latest}
     env_file: .env
     environment:
       # Dietro il proxy l'IP client è l'ultimo X-Forwarded-For (vedi apps/server/src/node.ts).

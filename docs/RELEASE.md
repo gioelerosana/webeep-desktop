@@ -6,18 +6,19 @@ arrivano agli utenti dalle GitHub Release: come li usa l'app è in
 
 ## Versioni
 
-Le versioni hanno la forma **`vYY.MAJOR.MINOR`**, per esempio `v26.1.0`, `v26.1.1`, `v26.2.0`:
+Le versioni hanno la forma **`AA.MAJOR.MINOR`** (SemVer `X.Y.Z`), per esempio `26.3.0`. Il tag
+Git è la stessa versione con la `v` davanti: `v26.3.0`.
 
 | Parte | Significato |
 |---|---|
-| `YY` | anno del rilascio a due cifre (data UTC del lancio) |
-| `MAJOR` | numero della release con funzionalità nuove nell'anno; riparte da 1 a ogni anno nuovo |
-| `MINOR` | numero delle correzioni dopo l'ultima `MAJOR`; riparte da 0 a ogni `MAJOR` |
+| `AA` | anno del rilascio a due cifre (data UTC del lancio) |
+| `MAJOR` | cambi grossi o incompatibili; si incrementa solo su richiesta esplicita o per cambi incompatibili, e il terzo numero riparte da 0 |
+| `MINOR` | ogni release normale (funzionalità e correzioni): si incrementa sempre l'ultimo numero |
 
-La prima release di un anno è sempre `vYY.1.0`, di qualunque tipo sia. `MAJOR` qui non
-vuol dire "rompe la compatibilità": indica una release che porta funzionalità nuove.
-La sintassi resta quella di SemVer (`X.Y.Z`), quindi electron-builder e electron-updater
-la accettano senza adattamenti.
+Esempi: `26.3.0` + una `feat` → `26.3.1`. Con un cambio incompatibile (`bump` = `major`) → `26.4.0`.
+Alla prima release di un anno nuovo la versione è `AA.0.0` (per esempio `27.0.0`), di qualunque tipo sia.
+
+La sintassi SemVer permette a electron-builder e electron-updater di leggerla senza adattamenti.
 
 Il numero è scritto nel campo `version` di quattro `package.json`: la radice,
 `apps/desktop`, `packages/moodle-api` e `packages/ui-kit`. Li aggiorna solo
@@ -30,11 +31,14 @@ Il tipo si ricava dai subject dei commit su `main` dall'ultimo tag `v*`, in
 [Conventional Commits](https://www.conventionalcommits.org/) (`tipo(ambito): descrizione`).
 Con lo squash merge il subject è il titolo della PR.
 
-| Commit dall'ultimo tag | Release |
-|---|---|
-| almeno un `feat(...)`, o qualunque tipo con `!` (`fix(core)!: …`) | `MAJOR`: `v26.1.0` → `v26.2.0` |
-| altrimenti almeno un `fix`, `perf`, `refactor`, `style`, `revert`, `build` | `MINOR`: `v26.1.0` → `v26.1.1` |
-| solo `docs`, `ci`, `chore`, `test`, o nessun commit | niente da rilasciare |
+| Commit dall'ultimo tag | `bump` = `auto` o `minor` | `bump` = `major` |
+|---|---|---|
+| almeno un `feat(...)` o `fix`, `perf`, `refactor`, `style`, `revert`, `build` | `MINOR` +1: `26.3.0` → `26.3.1` | `MAJOR` +1, `MINOR` a 0: `26.3.1` → `26.4.0` |
+| solo `docs`, `ci`, `chore`, `test`, o nessun commit | niente da rilasciare | rilascia comunque |
+
+Un commit con `!` (`fix(core)!: …`) è un cambio incompatibile: anche in `auto` alza il secondo
+numero e riporta il terzo a 0 (`26.3.1` → `26.4.0`). Basta un solo commit con `!` nel periodo perché
+la release sia `major`; non serve scegliere `bump` = `major` a mano.
 
 Non contano i merge commit (`Merge pull request …`, `Merge branch …`) e i
 `chore(release): …`. I subject che non sono in Conventional Commits vengono ignorati,
@@ -46,7 +50,10 @@ Il merge in `main` non rilascia nulla. La release è una decisione separata e si
 ## Lanciare una release
 
 Da GitHub: **Actions → Release manuale → Run workflow**, con branch `main` e `bump` su
-`auto` (default), `major` o `minor`. Il workflow rifiuta qualunque altro branch.
+`auto` (default), `minor` o `major`. `minor` incrementa l'ultimo numero; `major` incrementa il
+secondo e riporta il terzo a 0 (cambi incompatibili). `auto` sceglie tra i due in base ai commit:
+incrementa il secondo se c'è un commit con `!`, altrimenti l'ultimo. Il workflow rifiuta
+qualunque altro branch.
 
 Da terminale:
 
@@ -57,7 +64,7 @@ gh run watch <id>
 ```
 
 Con `bump` = `auto` e solo commit `docs`/`ci`/`chore`/`test` il run termina con
-"Niente da rilasciare", senza errore. Per forzare una release, `bump` = `major` o `minor`.
+"Niente da rilasciare", senza errore. Per forzare una release, `bump` = `minor` o `major`.
 
 Il riepilogo del run mostra la versione calcolata e i commit che contano per la release. In una
 sezione a parte elenca i subject non in Conventional Commits, che la release ignora. Merge commit
@@ -74,7 +81,7 @@ Prima di lanciare:
 Durante il lancio:
 
 3. Controlla nel riepilogo che versione e commit inclusi siano quelli attesi.
-4. Attendi i job `verify`, `build` (Linux e Windows) e `release`.
+4. Attendi i job `verify`, `build` (Linux e Windows), `docker` e `release`.
 
 Dopo la release:
 
@@ -99,6 +106,12 @@ e il secondo richiama [`release.yml`](../.github/workflows/release.yml).
      installer Windows NSIS. Nessuna firma del codice.
    - `release`: crea la GitHub Release con titolo `WeBeep Desktop vX.Y.Z`, note generate
      dai commit e gli artefatti.
+   - `docker`: dopo `verify`, in parallelo a `build`. Costruisce l'immagine di `apps/server/Dockerfile`
+     (solo `linux/amd64`) e la pubblica su GHCR come
+     `ghcr.io/gioelerosana/webeep-server:<versione>` e `ghcr.io/gioelerosana/webeep-server:latest`.
+     Parte solo con un tag (richiamo da `release-manual` o push di un tag `v*`), non con un lancio
+     manuale su un branch. Il pacchetto è privato e il workflow non ne cambia la visibilità: chi lo
+     usa fa `docker login ghcr.io` (vedi [deploy/README.md](../deploy/README.md)).
 
 Il `release.yml` è richiamato direttamente e non parte dal push del tag. Il motivo: un push
 fatto con il `GITHUB_TOKEN` non fa partire altri workflow. Le release sono serializzate:
@@ -111,11 +124,11 @@ commit di `main`:
 
 ```bash
 git switch main && git pull
-node scripts/release-version.mjs next --bump minor   # stampa la versione, es. 26.1.1
-node scripts/release-version.mjs set 26.1.1
-git commit -am "chore(release): v26.1.1"
-git tag -a v26.1.1 -m "v26.1.1"
-git push origin HEAD v26.1.1                         # il push del tag avvia release.yml
+node scripts/release-version.mjs next --bump minor   # stampa la versione, es. 26.3.1
+node scripts/release-version.mjs set 26.3.1
+git commit -am "chore(release): v26.3.1"
+git tag -a v26.3.1 -m "v26.3.1"
+git push origin HEAD v26.3.1                         # il push del tag avvia release.yml
 ```
 
 Un push fatto da una persona avvia `release.yml` da solo. Il job `verify` controlla che il tag

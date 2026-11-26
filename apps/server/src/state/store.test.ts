@@ -55,7 +55,7 @@ describe('stato cifrato', () => {
     const store = createMemoryStore();
     const manager = await createStateManager({ store, secretKey: KEY_A });
     const state = await manager.read();
-    expect(state).toEqual({ version: 1, webeep: null, clients: [], refreshTokens: [] });
+    expect(state).toEqual({ version: 2, webeep: null, deviceTokenHash: null, clients: [], refreshTokens: [] });
     expect(store.bytes()).toBeNull();
   });
 

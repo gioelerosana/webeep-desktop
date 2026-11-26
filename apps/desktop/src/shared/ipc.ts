@@ -171,15 +171,18 @@ export type ServerLinkState = {
   readonly fullName?: string;
 };
 
-/** Dati per collegare il server: li inserisce l'utente, il main li valida e normalizza. Il token WeBeep non passa di qui. */
+/** Indirizzo del server: lo inserisce l'utente, il main lo valida e normalizza. Il token WeBeep non passa di qui. */
 export type ServerLinkRequest = {
   readonly serverUrl: string;
-  readonly pairingKey: string;
 };
 
-/** Lunghezza della chiave di accoppiamento: la minima è quella che il server accetta, la massima un tetto di sicurezza. */
-export const SERVER_PAIRING_KEY_MIN_LENGTH = 32;
-export const SERVER_PAIRING_KEY_MAX_LENGTH = 512;
+/** `localOnly`: rimuove solo la configurazione di questo computer, senza chiamare il server. */
+export type ServerUnlinkRequest = {
+  readonly localOnly?: boolean;
+};
+
+/** Messaggio dell'errore di `server:link` quando l'utente annulla: l'interfaccia non lo mostra come errore. */
+export const SERVER_LINK_CANCELLED_MESSAGE = 'collegamento annullato';
 
 export type IpcContract = {
   'auth:get-state': { readonly args: []; readonly result: AuthState };
@@ -240,12 +243,21 @@ export type IpcContract = {
   /** Apre nel browser il modulo GitHub di segnalazione. Il main costruisce l'URL: il renderer passa solo il tipo. */
   'feedback:open': { readonly args: [kind: FeedbackKind]; readonly result: null };
 
-  /** Stato del collegamento al server privato. Senza un server salvato risponde subito, senza rete. */
+  /** Stato del collegamento al server privato. Senza URL o senza dispositivo salvato risponde subito, senza rete. */
   'server:get-link': { readonly args: []; readonly result: ServerLinkState };
-  /** Invia la sessione WeBeep attiva al server (`POST /pair`) e salva URL e chiave solo se il server la accetta. */
+  /**
+   * Collega il server: apre il browser per l'accesso, attende il ritorno sul loopback e invia la sessione
+   * WeBeep attiva (`POST /pair`). Resta pendente fino a successo, errore, annullamento o timeout.
+   * Errore con `SERVER_LINK_CANCELLED_MESSAGE` se annullato con `server:cancel-link`.
+   */
   'server:link': { readonly args: [request: ServerLinkRequest]; readonly result: ServerLinkState };
-  /** Revoca l'accoppiamento sul server (`DELETE /pair`). La configurazione locale si rimuove solo dopo la conferma del server. */
-  'server:unlink': { readonly args: []; readonly result: null };
+  /** Annulla il collegamento in corso e chiude il listener. Non fa nulla se non ce n'è uno. */
+  'server:cancel-link': { readonly args: []; readonly result: null };
+  /**
+   * Revoca l'accoppiamento sul server (`DELETE /pair`). La configurazione locale si rimuove solo dopo la conferma
+   * del server. Con `localOnly: true` rimuove solo quella locale, senza rete.
+   */
+  'server:unlink': { readonly args: [request?: ServerUnlinkRequest]; readonly result: null };
 
   /** Crash salvato e non ancora segnalato, oppure `null`. Non include lo stack. */
   'crash:get-pending': { readonly args: []; readonly result: CrashReportSummary | null };
@@ -305,6 +317,7 @@ export const WEB_UNAVAILABLE_CHANNELS = [
   'shell:open-external',
   // Server privato: l'accoppiamento usa la sessione WeBeep del desktop, non quella del browser.
   'server:link',
+  'server:cancel-link',
   'server:unlink',
   // Segnalazioni: aprono il browser di chi usa il desktop, come `shell:open-external`.
   'feedback:open',
